@@ -50,7 +50,96 @@ const FAQ: React.FC = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin' || user?.role === 'teacher';
   
-  const [faqItems, setFaqItems] = useState<FAQItem[]>([]);
+  const [faqItems, setFaqItems] = useState<FAQItem[]>([
+    {
+      id: 'faq_1',
+      question: 'Как добавить задачу?',
+      answer: 'Перейдите в раздел «Задачи» (https://sthub2-da44f.web.app/tasks) и нажмите «Добавить задачу».',
+      category: 'academic',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_2',
+      question: 'Как посмотреть свои оценки?',
+      answer: 'Откройте раздел «Оценки» (https://sthub2-da44f.web.app/grades).',
+      category: 'academic',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_3',
+      question: 'Как записаться на дополнительный курс?',
+      answer: 'Перейдите в «Дополнительные курсы» (https://sthub2-da44f.web.app/additional-courses) и выберите интересующий курс.',
+      category: 'academic',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_4',
+      question: 'Как связаться с поддержкой?',
+      answer: 'Используйте этот чат или перейдите в раздел «FAQ» (https://sthub2-da44f.web.app/faq).',
+      category: 'general',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_5',
+      question: 'Как загрузить учебный материал?',
+      answer: 'В разделе «Материалы» (https://sthub2-da44f.web.app/materials) нажмите «Загрузить материал» и следуйте инструкциям.',
+      category: 'academic',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_6',
+      question: 'Как восстановить пароль?',
+      answer: 'На странице входа нажмите «Забыли пароль?» и следуйте подсказкам.',
+      category: 'technical',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_7',
+      question: 'Как изменить профиль?',
+      answer: 'В разделе «Настройки» (https://sthub2-da44f.web.app/settings) вы можете изменить свои данные и настройки безопасности.',
+      category: 'general',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_8',
+      question: 'Как найти расписание занятий?',
+      answer: 'Перейдите в раздел «Расписание» (https://sthub2-da44f.web.app/schedule).',
+      category: 'academic',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_9',
+      question: 'Как посмотреть карту кампуса?',
+      answer: 'Откройте раздел «Карта кампуса» (https://sthub2-da44f.web.app/campus-map).',
+      category: 'campus',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_10',
+      question: 'Как найти вакансию или стажировку?',
+      answer: 'Перейдите в раздел «Вакансии» (https://sthub2-da44f.web.app/jobs).',
+      category: 'general',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'faq_11',
+      question: 'Как участвовать в мероприятиях?',
+      answer: 'Смотрите раздел «События» (https://sthub2-da44f.web.app/events).',
+      category: 'general',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [adminMode, setAdminMode] = useState(false);
@@ -358,8 +447,23 @@ const FAQ: React.FC = () => {
                           whiteSpace: 'pre-line',
                           mb: adminMode ? 2 : 0 
                         }}
+                        component="span"
                       >
-                        {item.answer}
+                        {item.answer.split(/(https?:\/\/[^\s)]+)/g).map((part, idx) =>
+                          /^https?:\/\//.test(part) ? (
+                            <a
+                              key={idx}
+                              href={part}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#1976d2', wordBreak: 'break-all' }}
+                            >
+                              {part}
+                            </a>
+                          ) : (
+                            part
+                          )
+                        )}
                       </Typography>
                       
                       {adminMode && (

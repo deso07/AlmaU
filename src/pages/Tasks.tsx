@@ -180,7 +180,16 @@ const TasksPage: React.FC = () => {
   
   // Helper function to handle Button onClick events
   const handleAddTask = () => {
-    handleOpenDialog();
+    setNewTask({
+      title: '',
+      description: '',
+      deadline: new Date().toISOString().split('T')[0],
+      completed: false,
+      subject: '',
+      priority: 'medium',
+      status: 'pending'
+    });
+    setOpenDialog(true);
   };
   
   const handleCloseDialog = () => {
@@ -241,31 +250,9 @@ const TasksPage: React.FC = () => {
   };
   
   // Add a placeholder when no tasks
-  if (filteredTasks.length === 0) {
+  if (tasks.length === 0) {
     return (
       <Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleAddTask}
-        >
-          Добавить задачу
-        </Button>
-        
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 3, 
-            mb: 3,
-            borderRadius: 2, 
-            bgcolor: 'var(--surface)',
-            border: '1px solid rgba(0, 0, 0, 0.12)'
-          }}
-        >
-          {/* ...search and filter components... */}
-        </Paper>
-        
         <Paper
           elevation={0}
           sx={{
@@ -276,7 +263,7 @@ const TasksPage: React.FC = () => {
             border: '1px solid rgba(0, 0, 0, 0.12)'
           }}
         >
-          <Typography variant="body1" color="textSecondary">
+          <Typography variant="body1" color="textSecondary" gutterBottom>
             У вас пока нет задач
           </Typography>
           <Button 
@@ -289,6 +276,116 @@ const TasksPage: React.FC = () => {
             Добавить первую задачу
           </Button>
         </Paper>
+
+        {/* Диалог добавления/редактирования задачи */}
+        <Dialog
+          open={openDialog} 
+          onClose={handleCloseDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            {editingTask ? 'Редактировать задачу' : 'Добавить новую задачу'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              name="title"
+              label="Название задачи"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={newTask.title}
+              onChange={handleChange}
+              required
+              sx={{ mb: 2, mt: 1 }}
+            />
+            
+            <TextField
+              margin="dense"
+              name="description"
+              label="Описание"
+              type="text"
+              fullWidth
+              variant="outlined"
+              multiline
+              rows={3}
+              value={newTask.description}
+              onChange={handleChange}
+              sx={{ mb: 2 }}
+            />
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                  <DatePicker
+                    label="Дедлайн"
+                    value={parseISO(newTask.deadline)}
+                    onChange={handleDateChange}
+                    slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+                    format="dd.MM.yyyy"
+                  />
+                </LocalizationProvider>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="dense">
+                  <InputLabel>Приоритет</InputLabel>
+                  <Select
+                    name="priority"
+                    value={newTask.priority}
+                    onChange={handleSelectChange}
+                    label="Приоритет"
+                  >
+                    <MenuItem value="low">Низкий</MenuItem>
+                    <MenuItem value="medium">Средний</MenuItem>
+                    <MenuItem value="high">Высокий</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            
+            <TextField
+              margin="dense"
+              name="subject"
+              label="Предмет"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={newTask.subject}
+              onChange={handleChange}
+              sx={{ mt: 1 }}
+            />
+            
+            {editingTask && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={newTask.completed}
+                    onChange={(e) => setNewTask(prev => ({ ...prev, completed: e.target.checked }))}
+                  />
+                }
+                label="Задача выполнена"
+                sx={{ mt: 2 }}
+              />
+            )}
+          </DialogContent>
+          
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleCloseDialog} color="inherit">
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleTaskSubmit} 
+              variant="contained" 
+              color="primary"
+              disabled={!newTask.title || !newTask.deadline}
+            >
+              {editingTask ? 'Сохранить' : 'Добавить'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
@@ -387,7 +484,9 @@ const TasksPage: React.FC = () => {
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange}
-          sx={{ mt: 2, borderBottom: 1, borderColor: 'divider' }}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ mb: 2 }}
         >
           <Tab label="Все задачи" />
           <Tab label="Выполненные" />
@@ -421,116 +520,6 @@ const TasksPage: React.FC = () => {
           onEditTask={handleOpenDialog}
         />
       </TabPanel>
-      
-      {/* Диалог добавления/редактирования задачи */}
-      <Dialog 
-        open={openDialog} 
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {editingTask ? 'Редактировать задачу' : 'Добавить новую задачу'}
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            name="title"
-            label="Название задачи"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={newTask.title}
-            onChange={handleChange}
-            required
-            sx={{ mb: 2, mt: 1 }}
-          />
-          
-          <TextField
-            margin="dense"
-            name="description"
-            label="Описание"
-            type="text"
-            fullWidth
-            variant="outlined"
-            multiline
-            rows={3}
-            value={newTask.description}
-            onChange={handleChange}
-            sx={{ mb: 2 }}
-          />
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                <DatePicker
-                  label="Дедлайн"
-                  value={parseISO(newTask.deadline)}
-                  onChange={handleDateChange}
-                  slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
-                  format="dd.MM.yyyy"
-                />
-              </LocalizationProvider>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="dense">
-                <InputLabel>Приоритет</InputLabel>
-                <Select
-                  name="priority"
-                  value={newTask.priority}
-                  onChange={handleSelectChange}
-                  label="Приоритет"
-                >
-                  <MenuItem value="low">Низкий</MenuItem>
-                  <MenuItem value="medium">Средний</MenuItem>
-                  <MenuItem value="high">Высокий</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-          
-          <TextField
-            margin="dense"
-            name="subject"
-            label="Предмет"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={newTask.subject}
-            onChange={handleChange}
-            sx={{ mt: 1 }}
-          />
-          
-          {editingTask && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={newTask.completed}
-                  onChange={(e) => setNewTask(prev => ({ ...prev, completed: e.target.checked }))}
-                />
-              }
-              label="Задача выполнена"
-              sx={{ mt: 2 }}
-            />
-          )}
-        </DialogContent>
-        
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDialog} color="inherit">
-            Отмена
-          </Button>
-          <Button 
-            onClick={handleTaskSubmit} 
-            variant="contained" 
-            color="primary"
-            disabled={!newTask.title || !newTask.deadline}
-          >
-            {editingTask ? 'Сохранить' : 'Добавить'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

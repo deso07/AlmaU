@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { Box, TextField, Button, Typography, Alert } from '@mui/material';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { app } from '../config/firebase';
 
 interface FeedbackFormProps {
   courseId: string;
@@ -9,40 +12,72 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ courseId, teacherId }) => {
   const [feedback, setFeedback] = useState('');
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const db = getFirestore(app);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Отправка данных на сервер
-    console.log({ feedback, email, courseId, teacherId });
-    setSubmitted(true);
+    setError('');
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      setError('Введите корректный email');
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        courseId,
+        teacherId,
+        email,
+        comment: feedback,
+        createdAt: serverTimestamp(),
+      });
+      setSubmitted(true);
+      setFeedback('');
+      setEmail('');
+    } catch (e) {
+      setError('Ошибка при отправке. Попробуйте позже.');
+    }
   };
 
   return (
-    <div>
-      <h2>Feedback for Course: {courseId}</h2>
-      <h3>Teacher: {teacherId}</h3>
+    <Box sx={{ maxWidth: 500, mx: 'auto', mt: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Обратная связь по курсу: <b>{courseId}</b>
+      </Typography>
+      <Typography variant="subtitle1" gutterBottom>
+        Преподаватель: <b>{teacherId}</b>
+      </Typography>
       {submitted ? (
-        <h3>Спасибо за ваш отзыв!</h3>
+        <Alert severity="success" sx={{ mt: 2 }}>
+          Спасибо за ваш отзыв!
+        </Alert>
       ) : (
         <form onSubmit={handleSubmit}>
-          <h2>Оставьте отзыв</h2>
-          <textarea
-            placeholder="Ваш отзыв"
+          <TextField
+            label="Ваш отзыв"
+            multiline
+            minRows={3}
+            fullWidth
+            required
             value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            required
+            onChange={e => setFeedback(e.target.value)}
+            sx={{ mb: 2 }}
           />
-          <input
+          <TextField
+            label="Ваш email"
             type="email"
-            placeholder="Ваш email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            fullWidth
             required
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            sx={{ mb: 2 }}
           />
-          <button type="submit">Отправить</button>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <Button type="submit" variant="contained">
+            Отправить
+          </Button>
         </form>
       )}
-    </div>
+    </Box>
   );
 };
 

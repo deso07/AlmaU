@@ -207,7 +207,7 @@ const CampusMap: React.FC = () => {
         />
       </Box>
       
-      <Grid container spacing={3}>
+      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
         {/* Фильтры и список мест */}
         <Grid item xs={12} md={4} lg={3}>
           <Paper 
@@ -220,21 +220,11 @@ const CampusMap: React.FC = () => {
             }}
           >
             <Tabs 
-              value={selectedType === 'all' ? 0 : 
-                   selectedType === 'building' ? 1 :
-                   selectedType === 'library' ? 2 :
-                   selectedType === 'cafeteria' ? 3 :
-                   selectedType === 'dorm' ? 4 :
-                   selectedType === 'sport' ? 5 :
-                   selectedType === 'medical' ? 6 :
-                   selectedType === 'transport' ? 7 : 8}
-              onChange={(_, value) => {
-                const types = ['all', 'building', 'library', 'cafeteria', 'dorm', 'sport', 'medical', 'transport', 'classroom'];
-                setSelectedType(types[value]);
-              }}
+              value={selectedType}
+              onChange={(e, v) => setSelectedType(v)}
               variant="scrollable"
               scrollButtons="auto"
-              sx={{ borderBottom: 1, borderColor: 'divider' }}
+              sx={{ mb: 2 }}
             >
               <Tab icon={<LocationIcon />} label="Все" />
               <Tab icon={<SchoolIcon />} label="Корпуса" />

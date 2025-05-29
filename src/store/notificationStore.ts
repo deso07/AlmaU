@@ -21,44 +21,7 @@ interface NotificationState {
 }
 
 // Mock notifications for demonstration
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Новое задание',
-    message: 'Вам назначено новое задание "Лабораторная работа №5"',
-    type: 'info',
-    date: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-    read: false,
-    link: '/tasks'
-  },
-  {
-    id: '2',
-    title: 'Приближающийся дедлайн',
-    message: 'Срок сдачи задания "Отчет по практике" истекает через 2 дня',
-    type: 'warning',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    read: false,
-    link: '/tasks'
-  },
-  {
-    id: '3',
-    title: 'Оценка выставлена',
-    message: 'Ваша работа "Курсовой проект" оценена на 85 баллов',
-    type: 'success',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    read: true,
-    link: '/grades'
-  },
-  {
-    id: '4',
-    title: 'Новое сообщение',
-    message: 'У вас новое сообщение от Иванова И.И.',
-    type: 'info',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 26), // 26 hours ago
-    read: true,
-    link: '/chat'
-  }
-];
+const initialNotifications: Notification[] = [];
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: initialNotifications,

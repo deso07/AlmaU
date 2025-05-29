@@ -17,11 +17,13 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  IconButton
+  IconButton,
+  Autocomplete
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { universities } from '../data/universities';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -39,15 +41,26 @@ const Register: React.FC = () => {
   const [lastName, setLastName] = useState('');
   
   // Additional info
-  const [university, setUniversity] = useState('');
-  const [faculty, setFaculty] = useState('');
+  const [selectedUniversity, setSelectedUniversity] = useState<typeof universities[0] | null>(null);
+  const [selectedFaculty, setSelectedFaculty] = useState<string>('');
   const [year, setYear] = useState('');
   const [phone, setPhone] = useState('');
   const [about, setAbout] = useState('');
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
   
   const [formError, setFormError] = useState('');
   
   const steps = ['Основная информация', 'Данные профиля'];
+  
+  const teacherPositions = [
+    'Профессор',
+    'Ассоциированный профессор',
+    'Доцент',
+    'Старший преподаватель',
+    'Преподаватель-практик',
+    'Ассистент преподавателя',
+    'Инструктор по языкам'
+  ];
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,15 +92,16 @@ const Register: React.FC = () => {
         
         // Additional data for user profile
         const userData = {
-          university,
-          faculty,
+          university: selectedUniversity?.name || '',
+          faculty: selectedFaculty,
           year,
           phone,
-          about
+          about,
+          role
         };
         
         // Register user with all collected data
-        await register(email, password, displayName, userData);
+        await register(displayName, email, password, userData);
         navigate('/');
       }
     } catch (error) {
@@ -247,6 +261,21 @@ const Register: React.FC = () => {
                     }}
                   />
                 </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth required sx={{ mt: 2 }}>
+                    <InputLabel id="role-label">Роль</InputLabel>
+                    <Select
+                      labelId="role-label"
+                      id="role"
+                      value={role}
+                      label="Роль"
+                      onChange={(e) => setRole(e.target.value as 'student' | 'teacher')}
+                    >
+                      <MenuItem value="student">Студент</MenuItem>
+                      <MenuItem value="teacher">Преподаватель</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
               </Grid>
               
               <Button
@@ -263,48 +292,91 @@ const Register: React.FC = () => {
             <>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
+                  <Autocomplete
                     id="university"
-                    label="Университет"
-                    placeholder="Введите название университета"
-                    name="university"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
+                    options={universities}
+                    getOptionLabel={(option) => `${option.name} (${option.city})`}
+                    value={selectedUniversity}
+                    onChange={(event, newValue) => {
+                      setSelectedUniversity(newValue);
+                      setSelectedFaculty('');
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        fullWidth
+                        label="Университет"
+                        placeholder="Выберите университет"
+                        required
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    id="faculty"
-                    label="Факультет"
-                    placeholder="Введите название факультета"
-                    name="faculty"
-                    value={faculty}
-                    onChange={(e) => setFaculty(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel id="year-label">Курс</InputLabel>
+                    <InputLabel id="faculty-label">Факультет</InputLabel>
                     <Select
-                      labelId="year-label"
-                      id="year"
-                      value={year}
-                      label="Курс"
-                      onChange={(e) => setYear(e.target.value)}
-                      displayEmpty
+                      labelId="faculty-label"
+                      id="faculty"
+                      value={selectedFaculty}
+                      label="Факультет"
+                      onChange={(e) => setSelectedFaculty(e.target.value)}
+                      disabled={!selectedUniversity}
                     >
-                      <MenuItem value="">Выберите курс</MenuItem>
-                      <MenuItem value="1">1 курс</MenuItem>
-                      <MenuItem value="2">2 курс</MenuItem>
-                      <MenuItem value="3">3 курс</MenuItem>
-                      <MenuItem value="4">4 курс</MenuItem>
-                      <MenuItem value="5">5 курс</MenuItem>
-                      <MenuItem value="6">6 курс</MenuItem>
+                      <MenuItem value="">
+                        <em>Выберите факультет</em>
+                      </MenuItem>
+                      {selectedUniversity?.faculties.map((faculty) => (
+                        <MenuItem key={faculty} value={faculty}>
+                          {faculty}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
+                {role === 'student' ? (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel id="year-label">Курс</InputLabel>
+                      <Select
+                        labelId="year-label"
+                        id="year"
+                        value={year}
+                        label="Курс"
+                        onChange={(e) => setYear(e.target.value)}
+                        displayEmpty
+                      >
+                        <MenuItem value="">Выберите курс</MenuItem>
+                        <MenuItem value="1">1 курс</MenuItem>
+                        <MenuItem value="2">2 курс</MenuItem>
+                        <MenuItem value="3">3 курс</MenuItem>
+                        <MenuItem value="4">4 курс</MenuItem>
+                        <MenuItem value="5">5 курс</MenuItem>
+                        <MenuItem value="6">6 курс</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                ) : (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth required>
+                      <InputLabel id="position-label">Должность</InputLabel>
+                      <Select
+                        labelId="position-label"
+                        id="position"
+                        value={year}
+                        label="Должность"
+                        onChange={(e) => setYear(e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Выберите должность</em>
+                        </MenuItem>
+                        {teacherPositions.map((pos) => (
+                          <MenuItem key={pos} value={pos}>{pos}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth

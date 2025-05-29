@@ -17,10 +17,15 @@ import Chat from '../pages/Chat';
 import Settings from '../pages/Settings';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
+import ForgotPassword from '../pages/ForgotPassword';
 // New pages
 import FAQ from '../pages/FAQ';
 import GradesJournal from '../pages/GradesJournal';
 import TeacherProfile from '../pages/TeacherProfile';
+import AdditionalCourses from '../pages/AdditionalCourses';
+import TeacherCourses from '../pages/TeacherCourses';
+import Announcements from '../pages/Announcements';
+import StudentGrades from '../pages/StudentGrades';
 
 // Auth-protected Route component
 const ProtectedRoute: React.FC<{element: JSX.Element}> = ({ element }) => {
@@ -49,6 +54,10 @@ const AppRoutes: React.FC = () => {
         path="/register" 
         element={isAuthenticated ? <Navigate to="/" replace /> : <Register />} 
       />
+      <Route 
+        path="/forgot-password" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPassword />} 
+      />
       
       {/* Protected routes wrapped in Layout */}
       <Route path="/" element={<ProtectedRoute element={<Layout />} />}>
@@ -65,6 +74,15 @@ const AppRoutes: React.FC = () => {
         <Route path="faq" element={<FAQ />} />
         <Route path="grades" element={<GradesJournal />} />
         <Route path="teacher-profile" element={<TeacherProfile />} />
+        <Route path="teacher-courses" element={<TeacherCourses />} />
+        <Route
+          path="/additional-courses"
+          element={
+            <ProtectedRoute element={<AdditionalCourses />} />
+          }
+        />
+        <Route path="announcements" element={<Announcements />} />
+        <Route path="student-grades" element={<StudentGrades />} />
         
         {/* Redirect any unmatched routes to Dashboard */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -25,7 +26,9 @@ import {
   Tooltip,
   Chip,
   Divider,
-  Menu
+  Menu,
+  LinearProgress,
+  CircularProgress
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -41,8 +44,14 @@ import {
   MoreVert as MoreIcon,
   FilterList as FilterIcon,
   SortByAlpha as SortIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  ContentCopy as ContentCopyIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { app } from '../config/firebase';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // Типы для материалов
 interface Material {
@@ -57,18 +66,6 @@ interface Material {
   tags: string[];
   description?: string;
 }
-
-// Список предметов
-const subjects = [
-  'Математика',
-  'Информатика',
-  'Физика',
-  'История',
-  'Иностранный язык',
-  'Экономика',
-  'Право',
-  'Философия'
-];
 
 // Пустой массив для материалов вместо моковых данных
 const mockMaterials: Material[] = [];
@@ -100,6 +97,7 @@ const formatDate = (dateString: string) => {
 };
 
 const MaterialsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [materials, setMaterials] = useState<Material[]>(mockMaterials);
   const [searchTerm, setSearchTerm] = useState('');
   const [tabValue, setTabValue] = useState(0);
@@ -109,6 +107,7 @@ const MaterialsPage: React.FC = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [detailsDialog, setDetailsDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // Новый материал
   const [newMaterial, setNewMaterial] = useState<Omit<Material, 'id' | 'url'>>({
@@ -123,6 +122,40 @@ const MaterialsPage: React.FC = () => {
   
   // Временное хранение тегов
   const [tagInput, setTagInput] = useState('');
+  
+  // Добавленные поля для загрузки файла
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const storage = getStorage(app);
+  const db = getFirestore(app);
+  
+  const isMobile = useMediaQuery('(max-width:600px)');
+  
+  // Загрузка материалов из Firestore
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        setLoading(true);
+        const materialsRef = collection(db, 'materials');
+        const q = query(materialsRef, orderBy('uploadDate', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        const materialsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Material[];
+        
+        setMaterials(materialsData);
+      } catch (error) {
+        console.error('Error fetching materials:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMaterials();
+  }, [db]);
   
   // Обработчики
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -183,24 +216,99 @@ const MaterialsPage: React.FC = () => {
     }));
   };
   
-  const handleUpload = () => {
-    // В реальном приложении здесь была бы загрузка файла
-    const newId = (materials.length + 1).toString();
-    const uploaded: Material = {
-      ...newMaterial,
-      id: newId,
-      url: '#'
-    };
-    
-    setMaterials([uploaded, ...materials]);
-    handleCloseUploadDialog();
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadError(null);
+      // Update material type based on file extension
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      let type: Material['type'] = 'other';
+      
+      if (extension === 'pdf') type = 'pdf';
+      else if (['doc', 'docx'].includes(extension || '')) type = 'doc';
+      else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension || '')) type = 'image';
+      else if (['mp4', 'avi', 'mov', 'wmv'].includes(extension || '')) type = 'video';
+      
+      setNewMaterial(prev => ({ ...prev, type }));
+    }
   };
   
-  const handleDeleteMaterial = () => {
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setUploadError('Пожалуйста, выберите файл для загрузки');
+      return;
+    }
+
+    try {
+      setUploadProgress(0);
+      const storageRef = ref(storage, `materials/${Date.now()}_${selectedFile.name}`);
+      
+      // Upload file
+      const uploadTask = uploadBytes(storageRef, selectedFile);
+      await uploadTask;
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Create new material in Firestore
+      const materialData = {
+        ...newMaterial,
+        url: downloadURL,
+        size: formatFileSize(selectedFile.size),
+        uploadDate: new Date().toISOString()
+      };
+
+      const docRef = await addDoc(collection(db, 'materials'), materialData);
+      
+      // Update local state
+      const uploaded: Material = {
+        ...materialData,
+        id: docRef.id
+      };
+      
+      setMaterials([uploaded, ...materials]);
+      handleCloseUploadDialog();
+      setSelectedFile(null);
+      setUploadProgress(0);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setUploadError('Ошибка при загрузке файла. Пожалуйста, попробуйте снова.');
+    }
+  };
+  
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  
+  const handleDeleteMaterial = async () => {
     if (selectedMaterial) {
-      setMaterials(materials.filter(material => material.id !== selectedMaterial.id));
+      try {
+        // Delete from Firestore
+        await deleteDoc(doc(db, 'materials', selectedMaterial.id));
+        
+        // Delete file from Storage if needed
+        if (selectedMaterial.url) {
+          const fileRef = ref(storage, selectedMaterial.url);
+          await deleteObject(fileRef);
+        }
+        
+        // Update local state
+        setMaterials(materials.filter(material => material.id !== selectedMaterial.id));
+      } catch (error) {
+        console.error('Error deleting material:', error);
+      }
     }
     handleMenuClose();
+  };
+  
+  // Функция для копирования ссылки
+  const handleShare = (url: string) => {
+    navigator.clipboard.writeText(url);
   };
   
   // Фильтрация материалов
@@ -242,16 +350,37 @@ const MaterialsPage: React.FC = () => {
   
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Учебные материалы
-        </Typography>
-        
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />} 
+      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: isMobile ? 'flex-start' : 'space-between', alignItems: isMobile ? 'stretch' : 'center', mb: 3, gap: isMobile ? 2 : 0 }}>
+        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 1 : 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(-1)}
+            sx={{ mb: isMobile ? 1 : 0, width: isMobile ? '100%' : 'auto', fontSize: isMobile ? 16 : 'inherit', py: isMobile ? 1.2 : undefined }}
+          >
+            Назад
+          </Button>
+          <Typography
+            variant={isMobile ? 'h5' : 'h4'}
+            component="h1"
+            sx={{ fontWeight: 'bold', wordBreak: 'break-word', fontSize: isMobile ? 22 : undefined, lineHeight: 1.2 }}
+          >
+            Учебные материалы
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
           onClick={handleOpenUploadDialog}
+          sx={{
+            width: isMobile ? '100%' : 'auto',
+            fontSize: isMobile ? 17 : 'inherit',
+            py: isMobile ? 1.3 : undefined,
+            px: isMobile ? 0 : 3,
+            borderRadius: 2,
+            mt: isMobile ? 1 : 0
+          }}
         >
           Загрузить
         </Button>
@@ -301,9 +430,6 @@ const MaterialsPage: React.FC = () => {
                 startAdornment={<FilterIcon fontSize="small" sx={{ mr: 1 }} />}
               >
                 <MenuItem value="">Все предметы</MenuItem>
-                {subjects.map(subject => (
-                  <MenuItem key={subject} value={subject}>{subject}</MenuItem>
-                ))}
               </Select>
             </FormControl>
             
@@ -328,7 +454,7 @@ const MaterialsPage: React.FC = () => {
           onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{ mb: 2 }}
         >
           <Tab label="Все файлы" />
           <Tab label="PDF" icon={<PdfIcon fontSize="small" />} iconPosition="start" />
@@ -339,32 +465,42 @@ const MaterialsPage: React.FC = () => {
         </Tabs>
       </Paper>
       
-      {sortedMaterials.length === 0 ? (
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : sortedMaterials.length === 0 ? (
         <Paper 
           elevation={0} 
           sx={{ 
-            p: 4, 
+            p: isMobile ? 2 : 4, 
             textAlign: 'center', 
             borderRadius: 2,
             bgcolor: 'var(--surface)',
             border: '1px solid rgba(0, 0, 0, 0.12)'
           }}
         >
-          <Typography color="textSecondary" sx={{ mb: 2 }}>
+          <Typography color="textSecondary" sx={{ mb: 2, fontSize: isMobile ? 16 : undefined }}>
             Материалы не найдены
           </Typography>
           <Button 
             variant="outlined" 
             startIcon={<AddIcon />}
             onClick={handleOpenUploadDialog}
+            sx={{
+              width: isMobile ? '100%' : 'auto',
+              fontSize: isMobile ? 16 : 'inherit',
+              py: isMobile ? 1.2 : undefined,
+              borderRadius: 2
+            }}
           >
             Загрузить материалы
           </Button>
         </Paper>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
           {sortedMaterials.map(material => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={material.id}>
+            <Grid item xs={12} md={6} sx={{ width: '100%' }} key={material.id}>
               <Paper
                 elevation={0}
                 sx={{ 
@@ -454,14 +590,14 @@ const MaterialsPage: React.FC = () => {
                   
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Tooltip title="Скачать">
-                      <IconButton size="small">
+                      <IconButton size="small" component="a" href={material.url} target="_blank" rel="noopener noreferrer">
                         <DownloadIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     
-                    <Tooltip title="Поделиться">
-                      <IconButton size="small">
-                        <ShareIcon fontSize="small" />
+                    <Tooltip title="Поделиться (копировать ссылку)">
+                      <IconButton size="small" onClick={() => handleShare(material.url)}>
+                        <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -560,19 +696,16 @@ const MaterialsPage: React.FC = () => {
               </Grid>
               
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>Предмет</InputLabel>
-                  <Select
-                    name="subject"
-                    value={newMaterial.subject}
-                    onChange={handleSelectChange}
-                    label="Предмет"
-                  >
-                    {subjects.map(subject => (
-                      <MenuItem key={subject} value={subject}>{subject}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <TextField
+                  margin="dense"
+                  name="subject"
+                  label="Предмет"
+                  fullWidth
+                  variant="outlined"
+                  value={newMaterial.subject}
+                  onChange={handleInputChange}
+                  required
+                />
               </Grid>
             </Grid>
             
@@ -609,21 +742,59 @@ const MaterialsPage: React.FC = () => {
             </Box>
             
             <Box sx={{ mt: 2, p: 2, border: '2px dashed rgba(0, 0, 0, 0.12)', borderRadius: 1, textAlign: 'center' }}>
-              <Typography variant="body2" color="textSecondary" gutterBottom>
-                Перетащите файл сюда или нажмите для выбора
-              </Typography>
-              <Button
-                variant="outlined"
-                component="label"
-                sx={{ mt: 1 }}
-              >
-                Выбрать файл
-                <input
-                  type="file"
-                  hidden
-                />
-              </Button>
+              {selectedFile ? (
+                <Box>
+                  <Typography variant="body2" gutterBottom>
+                    Выбран файл: {selectedFile.name}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    Размер: {formatFileSize(selectedFile.size)}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setSelectedFile(null)}
+                    sx={{ mt: 1 }}
+                  >
+                    Удалить
+                  </Button>
+                </Box>
+              ) : (
+                <>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Перетащите файл сюда или нажмите для выбора
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    sx={{ mt: 1 }}
+                  >
+                    Выбрать файл
+                    <input
+                      type="file"
+                      hidden
+                      onChange={handleFileSelect}
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp4,.avi,.mov,.wmv"
+                    />
+                  </Button>
+                </>
+              )}
             </Box>
+
+            {uploadError && (
+              <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+                {uploadError}
+              </Typography>
+            )}
+
+            {uploadProgress > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <LinearProgress variant="determinate" value={uploadProgress} />
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 1 }}>
+                  Загрузка: {uploadProgress}%
+                </Typography>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -634,7 +805,7 @@ const MaterialsPage: React.FC = () => {
             onClick={handleUpload}
             variant="contained"
             color="primary"
-            disabled={!newMaterial.title || !newMaterial.subject}
+            disabled={!newMaterial.title || !newMaterial.subject || !selectedFile}
           >
             Загрузить
           </Button>
@@ -736,15 +907,18 @@ const MaterialsPage: React.FC = () => {
             </DialogContent>
             <DialogActions>
               <Button
-                startIcon={<ShareIcon />}
-                onClick={handleCloseDetails}
+                startIcon={<ContentCopyIcon />}
+                onClick={() => handleShare(selectedMaterial.url)}
               >
-                Поделиться
+                Копировать ссылку
               </Button>
               <Button
                 variant="contained"
                 startIcon={<DownloadIcon />}
-                onClick={handleCloseDetails}
+                component="a"
+                href={selectedMaterial.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 color="primary"
               >
                 Скачать

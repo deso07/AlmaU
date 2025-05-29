@@ -29,19 +29,9 @@ const Dashboard: React.FC = () => {
         {user?.displayName ? `Привет, ${user.displayName.split(' ')[0]}!` : 'Добро пожаловать!'}
       </Typography>
       
-      <Grid container spacing={3}>
-        {/* Информация о профиле */}
-        <Grid item xs={12} md={4}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              height: '100%',
-              borderRadius: 2,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-              bgcolor: 'var(--surface)'
-            }}
-          >
+      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+        <Grid item xs={12} md={4} sx={{ width: '100%' }}>
+          <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, height: '100%', borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.12)', bgcolor: 'var(--surface)', width: '100%' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
               <Avatar
                 src={user?.photoURL || ""}
@@ -70,17 +60,8 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
         
-        {/* Предстоящие задачи и напоминания */}
-        <Grid item xs={12} md={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-              bgcolor: 'var(--surface)'
-            }}
-          >
+        <Grid item xs={12} md={8} sx={{ width: '100%' }}>
+          <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.12)', bgcolor: 'var(--surface)', width: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">
                 Предстоящие задачи
@@ -112,22 +93,9 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Аналитика и геймификация */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-              bgcolor: 'var(--surface)'
-            }}
-          >
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
-            >
+        <Grid item xs={12} sx={{ width: '100%' }}>
+          <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.12)', bgcolor: 'var(--surface)', width: '100%' }}>
+            <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
               <Tab label="Аналитика и прогресс" />
               <Tab label="Рейтинг студентов" />
               <Tab label="Обратная связь" />
@@ -144,17 +112,8 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
         
-        {/* Ближайшие события */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-              bgcolor: 'var(--surface)'
-            }}
-          >
+        <Grid item xs={12} sx={{ width: '100%' }}>
+          <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid rgba(0, 0, 0, 0.12)', bgcolor: 'var(--surface)', width: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">
                 Расписание на сегодня

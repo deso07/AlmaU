@@ -416,136 +416,161 @@ const SchedulePage: React.FC = () => {
                 sx={{ mb: 2 }}
               />
               
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth margin="dense">
-                    <InputLabel>Тип</InputLabel>
-                    <Select
-                      name="type"
-                      value={newEvent.type}
-                      onChange={handleSelectChange}
-                      label="Тип"
-                    >
-                      <MenuItem value="lecture">Лекция</MenuItem>
-                      <MenuItem value="seminar">Семинар</MenuItem>
-                      <MenuItem value="lab">Лабораторная</MenuItem>
-                      <MenuItem value="exam">Экзамен</MenuItem>
-                      <MenuItem value="consultation">Консультация</MenuItem>
-                      <MenuItem value="other">Другое</MenuItem>
-                    </Select>
-                  </FormControl>
+              <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <FormControl fullWidth margin="dense">
+                      <InputLabel>Тип</InputLabel>
+                      <Select
+                        name="type"
+                        value={newEvent.type}
+                        onChange={handleSelectChange}
+                        label="Тип"
+                      >
+                        <MenuItem value="lecture">Лекция</MenuItem>
+                        <MenuItem value="seminar">Семинар</MenuItem>
+                        <MenuItem value="lab">Лабораторная</MenuItem>
+                        <MenuItem value="exam">Экзамен</MenuItem>
+                        <MenuItem value="consultation">Консультация</MenuItem>
+                        <MenuItem value="other">Другое</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Paper>
                 </Grid>
                 
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth margin="dense">
-                    <InputLabel>День недели</InputLabel>
-                    <Select
-                      name="dayOfWeek"
-                      value={newEvent.dayOfWeek}
-                      onChange={handleSelectChange}
-                      label="День недели"
-                      disabled={!newEvent.isRepeating}
-                    >
-                      <MenuItem value={0}>Понедельник</MenuItem>
-                      <MenuItem value={1}>Вторник</MenuItem>
-                      <MenuItem value={2}>Среда</MenuItem>
-                      <MenuItem value={3}>Четверг</MenuItem>
-                      <MenuItem value={4}>Пятница</MenuItem>
-                      <MenuItem value={5}>Суббота</MenuItem>
-                      <MenuItem value={6}>Воскресенье</MenuItem>
-                    </Select>
-                  </FormControl>
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <FormControl fullWidth margin="dense">
+                      <InputLabel>День недели</InputLabel>
+                      <Select
+                        name="dayOfWeek"
+                        value={newEvent.dayOfWeek}
+                        onChange={handleSelectChange}
+                        label="День недели"
+                        disabled={!newEvent.isRepeating}
+                      >
+                        <MenuItem value={0}>Понедельник</MenuItem>
+                        <MenuItem value={1}>Вторник</MenuItem>
+                        <MenuItem value={2}>Среда</MenuItem>
+                        <MenuItem value={3}>Четверг</MenuItem>
+                        <MenuItem value={4}>Пятница</MenuItem>
+                        <MenuItem value={5}>Суббота</MenuItem>
+                        <MenuItem value={6}>Воскресенье</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Paper>
                 </Grid>
               </Grid>
               
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                    <TimePicker
-                      label="Время начала"
-                      value={new Date(`2000-01-01T${newEvent.startTime}`)}
-                      onChange={(date) => handleTimeChange(date, 'startTime')}
-                      slotProps={{ textField: { fullWidth: true } }}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                    <TimePicker
-                      label="Время окончания"
-                      value={new Date(`2000-01-01T${newEvent.endTime}`)}
-                      onChange={(date) => handleTimeChange(date, 'endTime')}
-                      slotProps={{ textField: { fullWidth: true } }}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-              </Grid>
-              
-              <TextField
-                margin="dense"
-                name="location"
-                label="Место проведения"
-                fullWidth
-                variant="outlined"
-                value={newEvent.location}
-                onChange={handleInputChange}
-                sx={{ mb: 2, mt: 2 }}
-              />
-              
-              <TextField
-                margin="dense"
-                name="teacher"
-                label="Преподаватель"
-                fullWidth
-                variant="outlined"
-                value={newEvent.teacher}
-                onChange={handleInputChange}
-                sx={{ mb: 2 }}
-              />
-              
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={6}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={!newEvent.isRepeating}
-                        onChange={(e) => setNewEvent(prev => ({
-                          ...prev,
-                          isRepeating: !e.target.checked
-                        }))}
-                      />
-                    }
-                    label="Разовое событие"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  {!newEvent.isRepeating && (
+              <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
                     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                      <DatePicker
-                        label="Дата события"
-                        value={newEvent.date ? new Date(newEvent.date) : null}
-                        onChange={handleDateChange}
+                      <TimePicker
+                        label="Время начала"
+                        value={new Date(`2000-01-01T${newEvent.startTime}`)}
+                        onChange={(date) => handleTimeChange(date, 'startTime')}
                         slotProps={{ textField: { fullWidth: true } }}
                       />
                     </LocalizationProvider>
-                  )}
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                      <TimePicker
+                        label="Время окончания"
+                        value={new Date(`2000-01-01T${newEvent.endTime}`)}
+                        onChange={(date) => handleTimeChange(date, 'endTime')}
+                        slotProps={{ textField: { fullWidth: true } }}
+                      />
+                    </LocalizationProvider>
+                  </Paper>
                 </Grid>
               </Grid>
               
-              <TextField
-                margin="dense"
-                name="notes"
-                label="Примечания"
-                fullWidth
-                variant="outlined"
-                multiline
-                rows={2}
-                value={newEvent.notes}
-                onChange={handleInputChange}
-                sx={{ mt: 2 }}
-              />
+              <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <TextField
+                      margin="dense"
+                      name="location"
+                      label="Место проведения"
+                      fullWidth
+                      variant="outlined"
+                      value={newEvent.location}
+                      onChange={handleInputChange}
+                    />
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <TextField
+                      margin="dense"
+                      name="teacher"
+                      label="Преподаватель"
+                      fullWidth
+                      variant="outlined"
+                      value={newEvent.teacher}
+                      onChange={handleInputChange}
+                    />
+                  </Paper>
+                </Grid>
+              </Grid>
+              
+              <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!newEvent.isRepeating}
+                          onChange={(e) => setNewEvent(prev => ({
+                            ...prev,
+                            isRepeating: !e.target.checked
+                          }))}
+                        />
+                      }
+                      label="Разовое событие"
+                    />
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    {!newEvent.isRepeating && (
+                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                        <DatePicker
+                          label="Дата события"
+                          value={newEvent.date ? new Date(newEvent.date) : null}
+                          onChange={handleDateChange}
+                          slotProps={{ textField: { fullWidth: true } }}
+                        />
+                      </LocalizationProvider>
+                    )}
+                  </Paper>
+                </Grid>
+              </Grid>
+              
+              <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+                <Grid item xs={12} md={12} sx={{ width: '100%' }}>
+                  <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                    <TextField
+                      margin="dense"
+                      name="notes"
+                      label="Примечания"
+                      fullWidth
+                      variant="outlined"
+                      multiline
+                      rows={2}
+                      value={newEvent.notes}
+                      onChange={handleInputChange}
+                    />
+                  </Paper>
+                </Grid>
+              </Grid>
             </Box>
           </DialogContent>
           <DialogActions>
@@ -648,13 +673,7 @@ const SchedulePage: React.FC = () => {
         </Box>
         
         {viewMode === 'week' && (
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{ mt: 1 }}
-          >
+          <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
             {weekDays.map((day, index) => (
               <Tab 
                 key={index} 
@@ -721,136 +740,161 @@ const SchedulePage: React.FC = () => {
               sx={{ mb: 2 }}
             />
             
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>Тип</InputLabel>
-                  <Select
-                    name="type"
-                    value={newEvent.type}
-                    onChange={handleSelectChange}
-                    label="Тип"
-                  >
-                    <MenuItem value="lecture">Лекция</MenuItem>
-                    <MenuItem value="seminar">Семинар</MenuItem>
-                    <MenuItem value="lab">Лабораторная</MenuItem>
-                    <MenuItem value="exam">Экзамен</MenuItem>
-                    <MenuItem value="consultation">Консультация</MenuItem>
-                    <MenuItem value="other">Другое</MenuItem>
-                  </Select>
-                </FormControl>
+            <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>Тип</InputLabel>
+                    <Select
+                      name="type"
+                      value={newEvent.type}
+                      onChange={handleSelectChange}
+                      label="Тип"
+                    >
+                      <MenuItem value="lecture">Лекция</MenuItem>
+                      <MenuItem value="seminar">Семинар</MenuItem>
+                      <MenuItem value="lab">Лабораторная</MenuItem>
+                      <MenuItem value="exam">Экзамен</MenuItem>
+                      <MenuItem value="consultation">Консультация</MenuItem>
+                      <MenuItem value="other">Другое</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Paper>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>День недели</InputLabel>
-                  <Select
-                    name="dayOfWeek"
-                    value={newEvent.dayOfWeek}
-                    onChange={handleSelectChange}
-                    label="День недели"
-                    disabled={!newEvent.isRepeating}
-                  >
-                    <MenuItem value={0}>Понедельник</MenuItem>
-                    <MenuItem value={1}>Вторник</MenuItem>
-                    <MenuItem value={2}>Среда</MenuItem>
-                    <MenuItem value={3}>Четверг</MenuItem>
-                    <MenuItem value={4}>Пятница</MenuItem>
-                    <MenuItem value={5}>Суббота</MenuItem>
-                    <MenuItem value={6}>Воскресенье</MenuItem>
-                  </Select>
-                </FormControl>
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>День недели</InputLabel>
+                    <Select
+                      name="dayOfWeek"
+                      value={newEvent.dayOfWeek}
+                      onChange={handleSelectChange}
+                      label="День недели"
+                      disabled={!newEvent.isRepeating}
+                    >
+                      <MenuItem value={0}>Понедельник</MenuItem>
+                      <MenuItem value={1}>Вторник</MenuItem>
+                      <MenuItem value={2}>Среда</MenuItem>
+                      <MenuItem value={3}>Четверг</MenuItem>
+                      <MenuItem value={4}>Пятница</MenuItem>
+                      <MenuItem value={5}>Суббота</MenuItem>
+                      <MenuItem value={6}>Воскресенье</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Paper>
               </Grid>
             </Grid>
             
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                  <TimePicker
-                    label="Время начала"
-                    value={new Date(`2000-01-01T${newEvent.startTime}`)}
-                    onChange={(date) => handleTimeChange(date, 'startTime')}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                  <TimePicker
-                    label="Время окончания"
-                    value={new Date(`2000-01-01T${newEvent.endTime}`)}
-                    onChange={(date) => handleTimeChange(date, 'endTime')}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                </LocalizationProvider>
-              </Grid>
-            </Grid>
-            
-            <TextField
-              margin="dense"
-              name="location"
-              label="Место проведения"
-              fullWidth
-              variant="outlined"
-              value={newEvent.location}
-              onChange={handleInputChange}
-              sx={{ mb: 2, mt: 2 }}
-            />
-            
-            <TextField
-              margin="dense"
-              name="teacher"
-              label="Преподаватель"
-              fullWidth
-              variant="outlined"
-              value={newEvent.teacher}
-              onChange={handleInputChange}
-              sx={{ mb: 2 }}
-            />
-            
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={!newEvent.isRepeating}
-                      onChange={(e) => setNewEvent(prev => ({
-                        ...prev,
-                        isRepeating: !e.target.checked
-                      }))}
-                    />
-                  }
-                  label="Разовое событие"
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                {!newEvent.isRepeating && (
+            <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
                   <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                    <DatePicker
-                      label="Дата события"
-                      value={newEvent.date ? new Date(newEvent.date) : null}
-                      onChange={handleDateChange}
+                    <TimePicker
+                      label="Время начала"
+                      value={new Date(`2000-01-01T${newEvent.startTime}`)}
+                      onChange={(date) => handleTimeChange(date, 'startTime')}
                       slotProps={{ textField: { fullWidth: true } }}
                     />
                   </LocalizationProvider>
-                )}
+                </Paper>
+              </Grid>
+              
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                    <TimePicker
+                      label="Время окончания"
+                      value={new Date(`2000-01-01T${newEvent.endTime}`)}
+                      onChange={(date) => handleTimeChange(date, 'endTime')}
+                      slotProps={{ textField: { fullWidth: true } }}
+                    />
+                  </LocalizationProvider>
+                </Paper>
               </Grid>
             </Grid>
             
-            <TextField
-              margin="dense"
-              name="notes"
-              label="Примечания"
-              fullWidth
-              variant="outlined"
-              multiline
-              rows={2}
-              value={newEvent.notes}
-              onChange={handleInputChange}
-              sx={{ mt: 2 }}
-            />
+            <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <TextField
+                    margin="dense"
+                    name="location"
+                    label="Место проведения"
+                    fullWidth
+                    variant="outlined"
+                    value={newEvent.location}
+                    onChange={handleInputChange}
+                  />
+                </Paper>
+              </Grid>
+              
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <TextField
+                    margin="dense"
+                    name="teacher"
+                    label="Преподаватель"
+                    fullWidth
+                    variant="outlined"
+                    value={newEvent.teacher}
+                    onChange={handleInputChange}
+                  />
+                </Paper>
+              </Grid>
+            </Grid>
+            
+            <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!newEvent.isRepeating}
+                        onChange={(e) => setNewEvent(prev => ({
+                          ...prev,
+                          isRepeating: !e.target.checked
+                        }))}
+                      />
+                    }
+                    label="Разовое событие"
+                  />
+                </Paper>
+              </Grid>
+              
+              <Grid item xs={12} md={6} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  {!newEvent.isRepeating && (
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                      <DatePicker
+                        label="Дата события"
+                        value={newEvent.date ? new Date(newEvent.date) : null}
+                        onChange={handleDateChange}
+                        slotProps={{ textField: { fullWidth: true } }}
+                      />
+                    </LocalizationProvider>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+            
+            <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+              <Grid item xs={12} md={12} sx={{ width: '100%' }}>
+                <Paper sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+                  <TextField
+                    margin="dense"
+                    name="notes"
+                    label="Примечания"
+                    fullWidth
+                    variant="outlined"
+                    multiline
+                    rows={2}
+                    value={newEvent.notes}
+                    onChange={handleInputChange}
+                  />
+                </Paper>
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -69,6 +69,8 @@ import { useAuthStore } from '../store/authStore';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Link as RouterLink } from 'react-router-dom';
+import { getFirestore, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { app } from '../config/firebase';
 
 // Types
 interface Student {
@@ -82,13 +84,13 @@ interface Student {
 interface Course {
   id: string;
   name: string;
-  type: 'lecture' | 'seminar' | 'lab' | 'exam' | 'consultation';
-  day: number;
-  startTime: string;
-  endTime: string;
-  room: string;
-  building: string;
-  studentGroups: string[];
+  type: string;
+  day?: number;
+  startTime?: string;
+  endTime?: string;
+  room?: string;
+  building?: string;
+  studentGroups?: string[];
 }
 
 interface Publication {
@@ -141,6 +143,7 @@ const TeacherProfile: React.FC = () => {
   const { user } = useAuthStore();
   const isTeacher = user?.role === 'admin' || user?.role === 'teacher';
   const [tabValue, setTabValue] = useState(0);
+  const db = getFirestore(app);
   
   // Initial empty profile data
   const [profileData, setProfileData] = useState<TeacherProfileData>({
@@ -220,6 +223,9 @@ const TeacherProfile: React.FC = () => {
     severity: 'success' as 'success' | 'error'
   });
   
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  
   // Tab handling
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -230,10 +236,21 @@ const TeacherProfile: React.FC = () => {
     setEditMode(!editMode);
   };
   
-  const handleSaveProfile = () => {
-    // Save profile data (in a real app, this would send data to a backend)
-    setEditMode(false);
-    showSnackbar('Профиль успешно обновлен');
+  const handleSaveProfile = async () => {
+    if (!user?.uid) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        displayName: profileData.name,
+        email: profileData.email,
+        position: profileData.position,
+        department: profileData.department,
+        phone: profileData.phone
+      });
+      setSnackbar({ open: true, message: 'Профиль обновлён', severity: 'success' });
+      setEditMode(false);
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Ошибка при сохранении', severity: 'error' });
+    }
   };
   
   // Dialog handlers
@@ -270,31 +287,11 @@ const TeacherProfile: React.FC = () => {
   };
   
   // Add new items
-  const handleAddCourse = () => {
-    const newCourseWithId: Course = {
-      ...newCourse,
-      id: `course_${Date.now()}`
-    };
-    
-    setProfileData({
-      ...profileData,
-      courses: [...profileData.courses, newCourseWithId]
-    });
-    
-    setCourseDialogOpen(false);
-    showSnackbar('Курс успешно добавлен');
-    
-    // Reset form
-    setNewCourse({
-      name: '',
-      type: 'lecture',
-      day: 1,
-      startTime: '09:00',
-      endTime: '10:30',
-      room: '',
-      building: '',
-      studentGroups: []
-    });
+  const handleAddCourse = async (course: Omit<Course, 'id'>) => {
+    if (!user?.uid) return;
+    const newCourse = { ...course, teacherId: user.uid };
+    const docRef = await addDoc(collection(db, 'courses'), newCourse);
+    setCourses(prev => [...prev, { ...newCourse, id: docRef.id }]);
   };
   
   const handleAddStudent = () => {
@@ -371,11 +368,9 @@ const TeacherProfile: React.FC = () => {
   };
   
   // Delete items
-  const handleDeleteCourse = (id: string) => {
-    setProfileData({
-      ...profileData,
-      courses: profileData.courses.filter(course => course.id !== id)
-    });
+  const handleDeleteCourse = async (id: string) => {
+    await deleteDoc(doc(db, 'courses', id));
+    setCourses(prev => prev.filter(c => c.id !== id));
     showSnackbar('Курс успешно удален');
   };
   
@@ -519,6 +514,25 @@ const TeacherProfile: React.FC = () => {
     student.group.toLowerCase().includes(studentSearchTerm.toLowerCase())
   );
 
+  // Загрузка курсов преподавателя из Firestore
+  useEffect(() => {
+    if (user?.uid && isTeacher) {
+      setLoadingCourses(true);
+      const fetchCourses = async () => {
+        const q = query(collection(db, 'courses'), where('teacherId', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        const loadedCourses: Course[] = querySnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          name: docSnap.data().name,
+          type: docSnap.data().type
+        }));
+        setCourses(loadedCourses);
+        setLoadingCourses(false);
+      };
+      fetchCourses();
+    }
+  }, [user, isTeacher, db]);
+
   return (
     <Box>
       <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -606,7 +620,7 @@ const TeacherProfile: React.FC = () => {
                 />
               ) : (
                 <Typography variant="body2" color="textSecondary" align="center">
-                  {profileData.position || "Должность не указана"}
+                  {profileData.position || user?.position || "Должность не указана"}
                 </Typography>
               )}
             </Box>
@@ -939,94 +953,39 @@ const TeacherProfile: React.FC = () => {
                   )}
                 </Box>
                 
-                {profileData.courses.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography variant="body1" color="textSecondary" gutterBottom>
-                      Курсы не добавлены
-                    </Typography>
-                    {isTeacher && (
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={handleOpenCourseDialog}
-                        sx={{ mt: 1 }}
-                      >
-                        Добавить первый курс
-                      </Button>
-                    )}
-                  </Box>
-                ) : (
-                  <Grid container spacing={2}>
-                    {profileData.courses.map((course) => (
-                      <Grid item xs={12} sm={6} key={course.id}>
-                        <Card 
-                          elevation={0} 
-                          sx={{ 
-                            border: '1px solid rgba(0, 0, 0, 0.12)', 
-                            borderRadius: 2,
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column'
-                          }}
-                        >
-                          <CardContent sx={{ flexGrow: 1 }}>
-                            <Typography variant="h6" gutterBottom>
-                              {course.name}
-                            </Typography>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <Chip 
-                                label={getCourseTypeName(course.type)} 
-                                size="small" 
-                                sx={{ mr: 1, bgcolor: 'rgba(0, 0, 0, 0.05)' }}
-                              />
-                            </Box>
-                            
-                            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                              <CalendarIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-                              {getDayName(course.day)}, {course.startTime} - {course.endTime}
-                            </Typography>
-                            
-                            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                              <LocationIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-                              {course.building}, ауд. {course.room}
-                            </Typography>
-                            
-                            {course.studentGroups.length > 0 && (
-                              <Box sx={{ mt: 1 }}>
-                                <Typography variant="body2" color="textSecondary" gutterBottom>
-                                  Группы:
+                <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Мои курсы</Typography>
+                <Paper sx={{ p: 2, borderRadius: 2, maxWidth: 600 }}>
+                  {loadingCourses ? (
+                    <Typography>Загрузка курсов...</Typography>
+                  ) : courses.length === 0 ? (
+                    <Typography color="textSecondary">Нет курсов</Typography>
+                  ) : (
+                    <List>
+                      {courses.map(c => (
+                        <ListItem key={c.id}>
+                          <ListItemText
+                            primary={c.name}
+                            secondary={
+                              <>
+                                <Typography variant="body2" color="textSecondary">
+                                  {c.type}
+                                  {typeof c.day === 'number' ? `, день: ${c.day}` : ''}
+                                  {c.startTime && c.endTime ? `, ${c.startTime} - ${c.endTime}` : ''}
+                                  {c.building && c.room ? `, ${c.building}, ауд. ${c.room}` : ''}
                                 </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                  {course.studentGroups.map((group, idx) => (
-                                    <Chip 
-                                      key={idx} 
-                                      label={group} 
-                                      size="small" 
-                                      sx={{ bgcolor: 'rgba(0, 0, 0, 0.05)' }}
-                                    />
-                                  ))}
-                                </Box>
-                              </Box>
-                            )}
-                          </CardContent>
-                          
-                          {isTeacher && (
-                            <Box sx={{ borderTop: '1px solid rgba(0, 0, 0, 0.12)', p: 1, display: 'flex', justifyContent: 'flex-end' }}>
-                              <IconButton 
-                                size="small" 
-                                color="error"
-                                onClick={() => handleDeleteCourse(course.id)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
-                          )}
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
+                                {Array.isArray(c.studentGroups) && c.studentGroups.length > 0 && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    Группы: {c.studentGroups.join(', ')}
+                                  </Typography>
+                                )}
+                              </>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Paper>
               </Box>
             </TabPanel>
             
@@ -1324,7 +1283,7 @@ const TeacherProfile: React.FC = () => {
                 <InputLabel>День недели</InputLabel>
                 <Select
                   name="course_day"
-                  value={newCourse.day.toString()}
+                  value={(newCourse.day ?? 1).toString()}
                   onChange={handleSelectChange}
                   label="День недели"
                 >
@@ -1394,7 +1353,7 @@ const TeacherProfile: React.FC = () => {
                 label="Группы студентов (через запятую)"
                 fullWidth
                 variant="outlined"
-                value={newCourse.studentGroups.join(', ')}
+                value={(newCourse.studentGroups ?? []).join(', ')}
                 onChange={(e) => setNewCourse({
                   ...newCourse,
                   studentGroups: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
@@ -1412,7 +1371,7 @@ const TeacherProfile: React.FC = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={handleAddCourse}
+            onClick={() => handleAddCourse(newCourse)}
             disabled={!newCourse.name || !newCourse.building || !newCourse.room}
           >
             Добавить

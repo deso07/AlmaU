@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -49,6 +49,8 @@ import {
   FileCopy as CopyIcon
 } from '@mui/icons-material';
 import { useAuthStore } from '../store/authStore';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { app } from '../config/firebase';
 
 // Types
 interface Student {
@@ -81,6 +83,7 @@ interface Grade {
 const GradesJournal: React.FC = () => {
   const { user } = useAuthStore();
   const isTeacher = user?.role === 'admin' || user?.role === 'teacher';
+  const db = getFirestore(app);
   
   // States
   const [students, setStudents] = useState<Student[]>([]);
@@ -145,6 +148,59 @@ const GradesJournal: React.FC = () => {
     { id: 'project', name: 'Проект' },
     { id: 'other', name: 'Другое' }
   ];
+  
+  // Загрузка курсов преподавателя
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchCourses = async () => {
+      const q = query(collection(db, 'courses'), where('teacherId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const loadedCourses: Course[] = querySnapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        name: docSnap.data().name,
+        semester: docSnap.data().semester ?? '',
+        creditHours: docSnap.data().creditHours ?? 0
+      }));
+      setCourses(loadedCourses);
+    };
+    fetchCourses();
+  }, [user, db]);
+
+  // Загрузка оценок
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchGrades = async () => {
+      const q = query(collection(db, 'grades'));
+      const querySnapshot = await getDocs(q);
+      const loadedGrades: Grade[] = querySnapshot.docs
+        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as Grade[];
+      setGrades(loadedGrades.filter(g => courses.some(c => c.id === g.courseId)));
+    };
+    fetchGrades();
+  }, [courses, user, db]);
+
+  // Загрузка студентов (по всем курсам)
+  useEffect(() => {
+    if (!courses.length) return;
+    const fetchStudents = async () => {
+      const allStudents: Student[] = [];
+      for (const course of courses) {
+        const q = query(collection(db, 'courseStudents'), where('courseId', '==', course.id));
+        const querySnapshot = await getDocs(q);
+        for (const docSnap of querySnapshot.docs) {
+          const studentId = docSnap.data().studentId;
+          // Получаем имя и группу
+          const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', studentId)));
+          if (!userDoc.empty) {
+            const u = userDoc.docs[0].data();
+            allStudents.push({ id: studentId, name: u.name || u.displayName || u.email, group: u.group || '', studentId: studentId });
+          }
+        }
+      }
+      setStudents(allStudents);
+    };
+    fetchStudents();
+  }, [courses]);
   
   // Filtered data
   const filteredStudents = students.filter(student => {
@@ -463,6 +519,25 @@ const GradesJournal: React.FC = () => {
     if (value >= 75) return 'primary.main';
     if (value >= 60) return 'warning.main';
     return 'error.main';
+  };
+  
+  // Экспорт в CSV
+  const handleExportCSV = () => {
+    const header = 'Курс,Студент,Группа,Оценка,Тип,Дата,Комментарий\n';
+    const rows = grades.map(g => {
+      const course = courses.find(c => c.id === g.courseId)?.name || '';
+      const student = students.find(s => s.id === g.studentId)?.name || '';
+      const group = students.find(s => s.id === g.studentId)?.group || '';
+      return [course, student, group, g.value, g.type, g.date, g.comment || ''].join(',');
+    });
+    const csv = header + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'grades_journal.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
   
   return (

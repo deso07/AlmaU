@@ -26,7 +26,8 @@ import {
   Close as CloseIcon,
   QuestionAnswer as QuestionAnswerIcon,
   Grade as GradeIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  MenuBook as MenuBookIcon
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 
@@ -104,6 +105,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, drawerWidth }) => {
       title: 'Настройки',
       path: '/settings',
       icon: <SettingsIcon />
+    },
+    {
+      title: 'Дополнительные курсы',
+      path: '/additional-courses',
+      icon: <MenuBookIcon />
     }
   ];
   
@@ -128,11 +134,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, drawerWidth }) => {
       sx={{
         display: 'block',
         '& .MuiDrawer-paper': {
-          width: drawerWidth,
+          width: { xs: '90vw', sm: drawerWidth },
+          maxWidth: 400,
           boxSizing: 'border-box',
           bgcolor: 'var(--sidebar-bg, #1a2035)',
           color: 'var(--sidebar-text, #ffffff)',
-          borderRight: 'none'
+          borderRight: 'none',
+          borderTopRightRadius: { xs: 16, sm: 0 },
+          borderBottomRightRadius: { xs: 16, sm: 0 },
+          boxShadow: { xs: '0 8px 32px rgba(0,0,0,0.25)', sm: 'none' },
+          transition: 'all 0.3s',
         },
       }}
     >
@@ -189,34 +200,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, drawerWidth }) => {
                   to={item.path}
                   disablePadding
                   sx={{
-                    borderRadius: '8px',
-                    m: theme.spacing(0.5, 1),
+                    borderRadius: '12px',
+                    m: theme.spacing(1, 1.5),
                     color: isActive ? 'var(--sidebar-active-text, #ffffff)' : 'var(--sidebar-text, rgba(255, 255, 255, 0.7))',
-                    bgcolor: isActive ? 'var(--sidebar-active-bg, rgba(255, 255, 255, 0.16))' : 'transparent',
+                    minHeight: 48,
+                    px: 2,
+                    py: 1.5,
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: '1.1rem',
+                    transition: 'background 0.2s',
                     '&:hover': {
-                      bgcolor: isActive ? 'var(--sidebar-active-bg, rgba(255, 255, 255, 0.16))' : 'var(--sidebar-hover-bg, rgba(255, 255, 255, 0.08))',
+                      background: 'rgba(255,255,255,0.08)',
                     },
-                    '&.active': {
-                      bgcolor: 'var(--sidebar-active-bg, rgba(255, 255, 255, 0.16))',
-                      color: 'var(--sidebar-active-text, #ffffff)',
-                      '& .MuiListItemIcon-root': {
-                        color: 'inherit'
-                      }
-                    },
-                    transition: 'background-color 0.2s'
+                    background: isActive ? 'rgba(255,255,255,0.12)' : 'none',
                   }}
                 >
-                  <Tooltip title={item.title} placement="right" arrow>
-                    <ListItem>
-                      <ListItemIcon sx={{ 
-                        color: isActive ? 'var(--sidebar-active-text, #ffffff)' : 'var(--sidebar-text, rgba(255, 255, 255, 0.7))',
-                        minWidth: 40
-                      }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText primary={item.title} />
-                    </ListItem>
-                  </Tooltip>
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: 36 }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.title} />
                 </ListItem>
               );
             })}

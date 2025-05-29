@@ -3,6 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/keyboard": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@capacitor/storage": "^7.0.0",
+    "@capacitor/camera": "^7.0.0",
+    "@capacitor/geolocation": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.0",
+    "@capacitor/cli": "^7.2.0",
+    "@capacitor/core": "^7.2.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^5.17.1",
@@ -12,10 +23,12 @@
     "@types/node": "^16.18.61",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
+    "bcryptjs": "^3.0.2",
     "chart.js": "^4.4.8",
     "date-fns": "^2.30.0",
     "firebase": "^11.6.0",
     "install": "^0.13.0",
+    "jsonwebtoken": "^9.0.2",
     "npm": "^11.2.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
@@ -31,7 +44,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "build:mobile": "npm run build && npx cap sync",
+    "android": "npx cap open android",
+    "ios": "npx cap open ios",
+    "sync": "npx cap sync"
   },
   "eslintConfig": {
     "extends": [

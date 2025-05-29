@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../context/ThemeContext';
+import { uploadAvatar } from '../utils/storage';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -138,6 +139,10 @@ const SettingsPage: React.FC = () => {
     confirm: false
   });
   
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  
   // Обработчики форм
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -231,10 +236,59 @@ const SettingsPage: React.FC = () => {
     setSnackbarOpen(true);
   };
   
-  const handleAvatarChange = () => {
-    // В реальном приложении здесь был бы код загрузки изображения
-    setAvatarDialogOpen(false);
-    showSnackbar('Аватар успешно обновлен');
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      
+      // Проверяем размер файла (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showSnackbar('Размер файла не должен превышать 5MB', 'error');
+        return;
+      }
+      
+      // Проверяем тип файла
+      if (!file.type.startsWith('image/')) {
+        showSnackbar('Пожалуйста, выберите изображение', 'error');
+        return;
+      }
+      
+      setAvatarFile(file);
+      
+      // Создаем preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleAvatarChange = async () => {
+    if (!avatarFile || !user) return;
+    
+    try {
+      setIsUploading(true);
+      
+      // Загружаем файл в Storage
+      const downloadURL = await uploadAvatar(avatarFile, user.uid);
+      
+      // Обновляем профиль пользователя
+      await updateUserProfile({
+        photoURL: downloadURL
+      });
+      
+      setAvatarDialogOpen(false);
+      showSnackbar('Аватар успешно обновлен');
+      
+      // Очищаем состояние
+      setAvatarFile(null);
+      setAvatarPreview('');
+    } catch (error) {
+      console.error('Error updating avatar:', error);
+      showSnackbar('Ошибка при обновлении аватара', 'error');
+    } finally {
+      setIsUploading(false);
+    }
   };
   
   return (
@@ -317,7 +371,7 @@ const SettingsPage: React.FC = () => {
             <Grid container spacing={4}>
               <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <Avatar
-                  src={user?.photoURL || ""}
+                  src={avatarPreview || user?.photoURL || ""}
                   alt={user?.displayName || "User"}
                   sx={{ width: 150, height: 150, mb: 2 }}
                 />
@@ -527,7 +581,7 @@ const SettingsPage: React.FC = () => {
                     Пароль
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Последнее изменение: 3 месяца назад
+                    Для безопасности рекомендуем регулярно менять пароль
                   </Typography>
                 </Box>
                 
@@ -577,45 +631,24 @@ const SettingsPage: React.FC = () => {
               }}
             >
               <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                Историю входов
+                История входов
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
                 Последние устройства, с которых был выполнен вход в ваш аккаунт
               </Typography>
-              
-              <List>
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemText 
-                    primary="Chrome на Windows 10" 
-                    secondary="Москва, Россия • Сегодня, 14:32" 
-                  />
-                  <Typography variant="body2" color="success.main">Текущий сеанс</Typography>
-                </ListItem>
-                <Divider />
-                
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemText 
-                    primary="Safari на iPhone" 
-                    secondary="Москва, Россия • Вчера, 19:45" 
-                  />
-                </ListItem>
-                <Divider />
-                
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemText 
-                    primary="Firefox на Windows 10" 
-                    secondary="Санкт-Петербург, Россия • 12 ноября 2023, 10:22" 
-                  />
-                </ListItem>
-              </List>
-              
-              <Button 
-                variant="text" 
-                color="primary" 
-                sx={{ mt: 1 }}
-              >
-                Показать все сеансы
-              </Button>
+              {user ? (
+                <List>
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemText 
+                      primary={navigator.userAgent}
+                      secondary={Intl.DateTimeFormat('ru-RU', { dateStyle: 'full', timeStyle: 'short' }).format(new Date())}
+                    />
+                    <Typography variant="body2" color="success.main">Текущий сеанс</Typography>
+                  </ListItem>
+                </List>
+              ) : (
+                <Typography variant="body2" color="textSecondary">История входов пуста</Typography>
+              )}
             </Paper>
           </Box>
         </TabPanel>
@@ -834,9 +867,13 @@ const SettingsPage: React.FC = () => {
       </Paper>
       
       {/* Диалог изменения аватара */}
-      <Dialog 
+      <Dialog
         open={avatarDialogOpen}
-        onClose={() => setAvatarDialogOpen(false)}
+        onClose={() => {
+          setAvatarDialogOpen(false);
+          setAvatarFile(null);
+          setAvatarPreview('');
+        }}
         maxWidth="xs"
         fullWidth
       >
@@ -846,7 +883,7 @@ const SettingsPage: React.FC = () => {
         <DialogContent>
           <Box sx={{ textAlign: 'center', py: 2 }}>
             <Avatar
-              src={user?.photoURL || ""}
+              src={avatarPreview || user?.photoURL || ""}
               alt={user?.displayName || "User"}
               sx={{ width: 150, height: 150, mx: 'auto', mb: 3 }}
             />
@@ -854,12 +891,14 @@ const SettingsPage: React.FC = () => {
             <Button
               variant="outlined"
               component="label"
+              disabled={isUploading}
             >
               Выбрать изображение
               <input
                 type="file"
                 hidden
                 accept="image/*"
+                onChange={handleFileSelect}
               />
             </Button>
             
@@ -869,14 +908,23 @@ const SettingsPage: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAvatarDialogOpen(false)} color="inherit">
+          <Button 
+            onClick={() => {
+              setAvatarDialogOpen(false);
+              setAvatarFile(null);
+              setAvatarPreview('');
+            }} 
+            color="inherit"
+            disabled={isUploading}
+          >
             Отмена
           </Button>
           <Button 
             variant="contained"
             onClick={handleAvatarChange}
+            disabled={!avatarFile || isUploading}
           >
-            Сохранить
+            {isUploading ? 'Загрузка...' : 'Сохранить'}
           </Button>
         </DialogActions>
       </Dialog>

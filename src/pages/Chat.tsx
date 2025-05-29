@@ -1,534 +1,297 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Typography,
-  Paper,
+  Container,
   TextField,
-  Grid,
-  Avatar,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
-  IconButton,
+  Avatar,
+  Typography,
+  Paper,
   InputAdornment,
+  IconButton,
+  Divider,
+  CircularProgress,
   Badge,
-  Tab,
-  Tabs,
-  useTheme,
-  useMediaQuery
+  Grid
 } from '@mui/material';
-import {
-  Send as SendIcon,
-  Search as SearchIcon,
-  AttachFile as AttachFileIcon,
-  InsertEmoticon as EmojiIcon,
-  Image as ImageIcon,
-  MoreVert as MoreVertIcon,
-  ArrowBack as ArrowBackIcon
-} from '@mui/icons-material';
+import { Send as SendIcon, Search as SearchIcon, AttachFile as AttachFileIcon } from '@mui/icons-material';
 import { useAuthStore } from '../store/authStore';
+import { useChatStore } from '../store/chatStore';
+import ChatSidebar from '../components/ChatSidebar';
+import { uploadChatFile } from '../utils/storage';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '../config/firebase';
 
-// Типы данных для сообщений и чатов
-interface Message {
-  id: string;
-  senderId: string;
-  text: string;
-  timestamp: number;
-  isRead: boolean;
-  attachments?: string[];
-}
-
-interface Chat {
-  id: string;
-  participants: User[];
-  messages: Message[];
-  lastMessage?: Message;
-  isGroup: boolean;
-  groupName?: string;
-  groupAvatar?: string;
-}
-
-interface User {
-  id: string;
-  name: string;
-  avatar: string;
-  status?: 'online' | 'offline';
-  lastActive?: string;
-}
-
-// Определение типа для chatPartner для корректной работы с status
-type ChatPartner = User | { name: string; avatar: string };
-
-// Пустые массивы вместо моковых данных
-const mockUsers: User[] = [];
-const generateMockChats = (currentUserId: string): Chat[] => [];
-
-const ChatPage: React.FC = () => {
+const Chat: React.FC = () => {
   const { user } = useAuthStore();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChat, setActiveChat] = useState<Chat | null>(null);
-  const [message, setMessage] = useState('');
+  const {
+    searchUsers,
+    startChat,
+    sendMessage,
+    messages,
+    loading,
+    error,
+    cleanup
+  } = useChatStore();
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [showMobileChat, setShowMobileChat] = useState(false);
-  
-  const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  
-  useEffect(() => {
-    if (user) {
-      // Initialize with empty chats instead of mock data
-      setChats([]);
-    }
-  }, [user]);
-  
-  useEffect(() => {
-    scrollToBottom();
-  }, [activeChat]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [messageText, setMessageText] = useState('');
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  const handleOpenChat = (chat: Chat) => {
-    setActiveChat(chat);
-    if (isMobile) {
-      setShowMobileChat(true);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
+  
+  const handleSearch = async () => {
+    if (searchTerm.trim()) {
+      try {
+        const results = await searchUsers(searchTerm);
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Error searching users:', error);
+      }
     }
   };
   
-  const handleBackToList = () => {
-    setShowMobileChat(false);
-  };
-  
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setMenuAnchorEl(event.currentTarget);
-  };
-  
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-  };
-  
-  const handleSendMessage = () => {
-    if (message.trim() && activeChat) {
-      const newMessage: Message = {
-        id: `msg_${Date.now()}`,
-        senderId: user?.uid || '',
-        text: message.trim(),
-        timestamp: Date.now(),
-        isRead: false
-      };
-      
-      const updatedChat = {
-        ...activeChat,
-        messages: [...activeChat.messages, newMessage],
-        lastMessage: newMessage
-      };
-      
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === activeChat.id ? updatedChat : chat
-        )
-      );
-      
-      setActiveChat(updatedChat);
-      setMessage('');
-      
-      setTimeout(scrollToBottom, 100);
+  const handleStartChat = async (userId: string) => {
+    try {
+      const chatId = await startChat(userId);
+      setSearchResults([]);
+      setSearchTerm('');
+      setSelectedChatId(chatId);
+
+      // Fetch chat and set currentChat in store
+      const db = getFirestore(app);
+      const chatDoc = await getDoc(doc(db, 'chats', chatId));
+      if (chatDoc.exists()) {
+        const data = chatDoc.data();
+        useChatStore.setState({
+          currentChat: {
+            id: chatId,
+            participants: data.participants || [],
+            unreadCount: data.unreadCount || 0,
+            lastMessage: data.lastMessage || undefined
+          }
+        });
+      }
+      // Optionally, load messages for the new chat
+      await useChatStore.getState().loadMessages(chatId);
+    } catch (error) {
+      console.error('Error starting chat:', error);
     }
   };
   
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleSendMessage = async (e: React.FormEvent) => {
       e.preventDefault();
-      handleSendMessage();
+    if (!selectedChatId && !useChatStore.getState().currentChat?.id) {
+      console.warn('No active chat selected');
+      return;
+    }
+    if (messageText.trim()) {
+      try {
+        await sendMessage(messageText);
+        setMessageText('');
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
   };
-  
-  const filteredChats = chats.filter(chat => {
-    const chatName = chat.isGroup 
-      ? chat.groupName 
-      : chat.participants.find(p => p.id !== user?.uid)?.name;
-    
-    return chatName?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-  
-  const formatMessageTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  };
-  
-  const formatLastActive = (timestamp: number) => {
-    const now = new Date();
-    const messageDate = new Date(timestamp);
-    const diffDays = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return formatMessageTime(timestamp);
-    } else if (diffDays === 1) {
-      return 'вчера';
-    } else if (diffDays < 7) {
-      const days = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
-      return `в ${days[messageDate.getDay()]}`;
-    } else {
-      return messageDate.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'long'
+
+  // Выбор чата из сайдбара
+  const handleSelectChat = async (chatId: string) => {
+    setSelectedChatId(chatId);
+    await useChatStore.getState().loadMessages(chatId);
+    // Получить чат из Firestore и установить currentChat
+    const db = getFirestore(app);
+    const chatDoc = await getDoc(doc(db, 'chats', chatId));
+    if (chatDoc.exists()) {
+      const data = chatDoc.data();
+      useChatStore.setState({
+        currentChat: {
+          id: chatId,
+          participants: data.participants || [],
+          unreadCount: data.unreadCount || 0,
+          lastMessage: data.lastMessage || undefined
+        }
       });
     }
   };
   
-  const ChatsList = (
-    <Paper 
-      elevation={0}
-      sx={{ 
-        height: '75vh',
-        borderRadius: 2,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        border: '1px solid rgba(0, 0, 0, 0.12)',
-        bgcolor: 'var(--surface)'
-      }}
-    >
-      <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}>
-        <Typography variant="h6" fontWeight="bold">
-          Сообщения
-        </Typography>
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const chatId = selectedChatId || useChatStore.getState().currentChat?.id;
+    if (!file || !chatId) return;
+    setUploading(true);
+    try {
+      const url = await uploadChatFile(file, chatId);
+      await sendMessage('', url, file.type);
+    } catch (error) {
+      console.error('Ошибка загрузки файла:', error);
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <Container maxWidth={false} sx={{ mt: 4, mb: 4 }}>
+      <Paper elevation={0} sx={{ p: 0, bgcolor: 'transparent' }}>
+        <Grid container>
+          <Grid item xs={12} md={4} lg={3}>
+            <ChatSidebar onSelectChat={handleSelectChat} selectedChatId={selectedChatId} />
+            <Paper elevation={3} sx={{ p: 2, mb: 2, mt: 2 }}>
         <TextField
-          placeholder="Поиск чатов..."
+                fullWidth
           variant="outlined"
-          fullWidth
-          size="small"
+                placeholder="Поиск пользователей..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ mt: 1 }}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleSearch}>
+                        <SearchIcon />
+                      </IconButton>
               </InputAdornment>
             ),
           }}
         />
-      </Box>
-      
-      <List sx={{ overflow: 'auto', flexGrow: 1, px: 1 }}>
-        {filteredChats.length === 0 ? (
-          <Box sx={{ textAlign: 'center', p: 3 }}>
-            <Typography color="textSecondary">
-              У вас пока нет сообщений
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-              Начните общение с другими студентами или преподавателями
-            </Typography>
-          </Box>
-        ) : (
-          filteredChats.map(chat => {
-            const chatPartner: ChatPartner = chat.isGroup 
-              ? { name: chat.groupName || 'Групповой чат', avatar: chat.groupAvatar || '' }
-              : chat.participants.find(p => p.id !== user?.uid) || { name: '', avatar: '' };
-              
-            // Check if chatPartner is a User type with status property
-            const isUserWithStatus = 'id' in chatPartner && 'status' in chatPartner;
-            const isOnline = isUserWithStatus && chatPartner.status === 'online';
-              
-            return (
+              {searchResults.length > 0 && (
+                <List>
+                  {searchResults.map((result) => (
               <ListItem 
-                key={chat.id}
+                      key={result.id}
                 button 
-                onClick={() => handleOpenChat(chat)}
-                sx={{ 
-                  borderRadius: 1,
-                  mb: 0.5,
-                  '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
-                }}
+                      onClick={() => handleStartChat(result.id)}
+                      sx={{ cursor: 'pointer' }}
               >
                 <ListItemAvatar>
-                  <Badge
-                    color="success"
-                    variant="dot"
-                    invisible={!chat.isGroup && !isOnline}
-                    overlap="circular"
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'right',
-                    }}
-                  >
-                    <Avatar src={chat.isGroup ? chat.groupAvatar : chatPartner.avatar}>
-                      {(chat.isGroup ? chat.groupName : chatPartner.name)?.charAt(0)}
+                        <Avatar src={result.photoURL} alt={result.displayName}>
+                          {result.displayName?.[0]}
                     </Avatar>
-                  </Badge>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={chat.isGroup ? chat.groupName : chatPartner.name}
-                  secondary={
-                    chat.lastMessage 
-                      ? chat.lastMessage.senderId === user?.uid
-                        ? `Вы: ${chat.lastMessage.text}`
-                        : chat.lastMessage.text
-                      : 'Начните общение'
-                  }
-                  primaryTypographyProps={{
-                    fontWeight: chat.lastMessage && !chat.lastMessage.isRead && chat.lastMessage.senderId !== user?.uid ? 'bold' : 'normal'
-                  }}
-                  secondaryTypographyProps={{
-                    noWrap: true,
-                    fontWeight: chat.lastMessage && !chat.lastMessage.isRead && chat.lastMessage.senderId !== user?.uid ? 'bold' : 'normal'
-                  }}
-                />
-                {chat.lastMessage && (
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 1, minWidth: 40, textAlign: 'right' }}>
-                    {formatLastActive(chat.lastMessage.timestamp)}
-                  </Typography>
-                )}
+                        primary={result.displayName}
+                        secondary={`${result.university || ''} ${result.faculty || ''}`}
+                      />
               </ListItem>
-            );
-          })
+                  ))}
+                </List>
         )}
-      </List>
     </Paper>
-  );
-  
-  const ChatContent = activeChat ? (
+          </Grid>
+          <Grid item xs={12} md={8} lg={9}>
     <Paper 
-      elevation={0}
+              elevation={3}
       sx={{ 
-        height: '75vh',
-        borderRadius: 2,
-        overflow: 'hidden',
+                height: '70vh',
         display: 'flex',
         flexDirection: 'column',
-        border: '1px solid rgba(0, 0, 0, 0.12)',
-        bgcolor: 'var(--surface)'
-      }}
-    >
-      {/* Заголовок чата */}
+                p: 2,
+                ml: { md: 2 },
+                mt: { xs: 2, md: 0 }
+              }}
+            >
+              <Box sx={{ flexGrow: 1, overflow: 'auto', mb: 2 }}>
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : error ? (
+                  <Typography color="error" align="center">
+                    {error}
+                  </Typography>
+                ) : (
+                  <List>
+                    {messages.map((message) => (
+                      <ListItem
+                        key={message.id}
+        sx={{ 
+                          justifyContent: message.senderId === user?.id ? 'flex-end' : 'flex-start'
+                        }}
+                      >
       <Box 
         sx={{ 
-          p: 2, 
-          display: 'flex', 
-          alignItems: 'center',
-          borderBottom: '1px solid rgba(0, 0, 0, 0.12)' 
+                            maxWidth: '70%',
+                            bgcolor: message.senderId === user?.id ? 'primary.main' : 'grey.100',
+                            color: message.senderId === user?.id ? 'white' : 'text.primary',
+                            borderRadius: 2,
+                            p: 1
         }}
       >
-        {isMobile && (
-          <IconButton edge="start" onClick={handleBackToList} sx={{ mr: 1 }}>
-            <ArrowBackIcon />
-          </IconButton>
-        )}
-        
-        <Avatar 
-          src={
-            activeChat.isGroup 
-              ? activeChat.groupAvatar 
-              : activeChat.participants.find(p => p.id !== user?.uid)?.avatar
-          }
-          sx={{ mr: 2 }}
-        >
-          {(activeChat.isGroup 
-            ? activeChat.groupName 
-            : activeChat.participants.find(p => p.id !== user?.uid)?.name)?.charAt(0)}
-        </Avatar>
-        
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="subtitle1" fontWeight="medium">
-            {activeChat.isGroup 
-              ? activeChat.groupName 
-              : activeChat.participants.find(p => p.id !== user?.uid)?.name}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            {activeChat.isGroup 
-              ? `${activeChat.participants.length} участников` 
-              : activeChat.participants.find(p => p.id !== user?.uid)?.status === 'online'
-                ? 'В сети'
-                : activeChat.participants.find(p => p.id !== user?.uid)?.lastActive || 'Не в сети'}
-          </Typography>
-        </Box>
-        
-        <IconButton onClick={handleMenuOpen}>
-          <MoreVertIcon />
-        </IconButton>
-      </Box>
-      
-      {/* Область сообщений */}
-      <Box 
-        sx={{ 
-          flexGrow: 1, 
-          overflow: 'auto',
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        {activeChat.messages.length === 0 ? (
-          <Box sx={{ 
-            flexGrow: 1, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            justifyContent: 'center', 
-            alignItems: 'center' 
-          }}>
-            <Typography color="textSecondary" align="center">
-              Начало диалога
-            </Typography>
-            <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 1 }}>
-              Отправьте сообщение, чтобы начать общение
+                          {message.fileUrl && message.fileType?.startsWith('image/') && (
+                            <img src={message.fileUrl} alt="img" style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, marginBottom: 8 }} />
+                          )}
+                          {message.fileUrl && message.fileType?.startsWith('video/') && (
+                            <video src={message.fileUrl} controls style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, marginBottom: 8 }} />
+                          )}
+                          {message.text && (
+                            <Typography variant="body1">{message.text}</Typography>
+                          )}
+                          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                            {message.timestamp && message.timestamp.toDate ? new Date(message.timestamp.toDate()).toLocaleTimeString() : ''}
             </Typography>
           </Box>
-        ) : (
-          activeChat.messages.map(msg => {
-            const isCurrentUser = msg.senderId === user?.uid;
-            const sender = activeChat.participants.find(p => p.id === msg.senderId);
-            
-            return (
-              <Box 
-                key={msg.id}
-                sx={{ 
-                  display: 'flex',
-                  justifyContent: isCurrentUser ? 'flex-end' : 'flex-start',
-                  mb: 1.5
-                }}
-              >
-                {!isCurrentUser && activeChat.isGroup && (
-                  <Avatar 
-                    src={sender?.avatar} 
-                    sx={{ width: 32, height: 32, mr: 1, mt: 0.5 }}
-                  >
-                    {sender?.name.charAt(0)}
-                  </Avatar>
+                      </ListItem>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </List>
                 )}
-                
-                <Box sx={{ maxWidth: '70%' }}>
-                  {!isCurrentUser && activeChat.isGroup && (
-                    <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
-                      {sender?.name}
-                    </Typography>
-                  )}
-                  
-                  <Paper
-                    elevation={0}
-                    sx={{ 
-                      p: 1.5,
-                      bgcolor: isCurrentUser ? 'primary.main' : 'background.paper',
-                      color: isCurrentUser ? 'white' : 'text.primary',
-                      borderRadius: 2,
-                      ml: isCurrentUser ? 0 : 1,
-                      border: !isCurrentUser ? '1px solid rgba(0,0,0,0.08)' : 'none'
-                    }}
-                  >
-                    <Typography variant="body1">
-                      {msg.text}
-                    </Typography>
-                  </Paper>
-                  
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
-                    {formatMessageTime(msg.timestamp)}
-                  </Typography>
-                </Box>
               </Box>
-            );
-          })
-        )}
-        <div ref={messagesEndRef} />
-      </Box>
-      
-      {/* Область ввода */}
-      <Box 
-        sx={{ 
-          p: 2,
-          borderTop: '1px solid rgba(0, 0, 0, 0.12)',
-          display: 'flex',
-          alignItems: 'center'
-        }}
-      >
-        <IconButton>
+              <Box component="form" onSubmit={handleSendMessage} sx={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  style={{ display: 'none' }}
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+                <IconButton onClick={() => fileInputRef.current?.click()} disabled={uploading} sx={{ mr: 1 }}>
           <AttachFileIcon />
         </IconButton>
-        <IconButton>
-          <ImageIcon />
-        </IconButton>
-        <IconButton>
-          <EmojiIcon />
-        </IconButton>
-        
         <TextField
+                  fullWidth
+                  variant="outlined"
           placeholder="Введите сообщение..."
-          variant="outlined"
-          fullWidth
-          multiline
-          maxRows={4}
-          size="small"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-        />
-        
-        <IconButton 
-          sx={{ ml: 1 }} 
-          color="primary"
-          onClick={handleSendMessage}
-          disabled={message.trim() === ''}
-        >
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton type="submit" disabled={(!messageText.trim() && !fileInputRef.current?.files?.length) || uploading || !selectedChatId}>
           <SendIcon />
         </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  disabled={uploading}
+                />
       </Box>
     </Paper>
-  ) : (
-    <Paper 
-      elevation={0}
-      sx={{ 
-        height: '75vh',
-        borderRadius: 2,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexDirection: 'column',
-        p: 3,
-        border: '1px solid rgba(0, 0, 0, 0.12)',
-        bgcolor: 'var(--surface)'
-      }}
-    >
-      <Typography variant="h6" color="textSecondary" gutterBottom>
-        Выберите чат для общения
-      </Typography>
-      <Typography variant="body2" color="textSecondary" align="center">
-        Здесь появятся сообщения. Начните общение с друзьями или преподавателями.
-      </Typography>
-    </Paper>
-  );
-  
-  if (isMobile) {
-    return (
-      <Box>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 3 }}>
-          Чаты
-        </Typography>
-        
-        {!showMobileChat ? ChatsList : ChatContent}
-      </Box>
-    );
-  }
-  
-  return (
-    <Box>
-      <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 3 }}>
-        Чаты
-      </Typography>
-      
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          {ChatsList}
         </Grid>
-        <Grid item xs={12} md={8}>
-          {ChatContent}
         </Grid>
-      </Grid>
-    </Box>
+      </Paper>
+    </Container>
   );
 };
 
-export default ChatPage;
+export default Chat;

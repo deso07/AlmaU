@@ -107,7 +107,8 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, drawerWidth }) => {
         bgcolor: 'var(--header-bg)',
         color: 'var(--header-text)',
         borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
-        transition: 'background-color 0.3s, color 0.3s'
+        transition: 'background-color 0.3s, color 0.3s, padding-top 0.3s',
+        paddingTop: 'env(safe-area-inset-top, 24px)',
       }}
     >
       <Toolbar>
@@ -126,59 +127,57 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, drawerWidth }) => {
           component={Link}
           to="/"
           sx={{ 
-            flexGrow: 1,
             color: 'inherit',
             textDecoration: 'none',
             fontWeight: 'bold',
             display: 'flex',
             alignItems: 'center',
+            mr: { xs: 2, sm: 3 }
           }}
         >
           StudentHub
         </Typography>
-        
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {/* Все иконки строго справа */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, ml: 'auto' }}>
           <Tooltip title={currentTheme === 'light' ? 'Темная тема' : 'Светлая тема'}>
-            <IconButton color="inherit" onClick={toggleTheme} sx={{ ml: 1 }}>
-              {currentTheme === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+            <IconButton color="inherit" onClick={toggleTheme} size="large">
+              {currentTheme === 'light' ? <DarkModeIcon fontSize="large" /> : <LightModeIcon fontSize="large" />}
             </IconButton>
           </Tooltip>
-          
           <Tooltip title="Уведомления">
             <IconButton 
               color="inherit" 
-              sx={{ ml: 1 }}
               onClick={handleNotificationsMenu}
               aria-label="notifications"
               aria-controls="notifications-menu"
               aria-haspopup="true"
+              size="large"
             >
               <Badge color="error" badgeContent={unreadCount}>
-                <NotificationsIcon />
+                <NotificationsIcon fontSize="large" />
               </Badge>
             </IconButton>
           </Tooltip>
-          
-          <Box sx={{ ml: 2 }}>
+          <Box>
             <Tooltip title="Аккаунт">
               <ButtonBase 
                 onClick={handleMenu}
                 sx={{ 
                   borderRadius: '50%',
                   overflow: 'hidden',
-                  width: 38,
-                  height: 38,
+                  width: 32,
+                  height: 32,
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  '&:hover': { opacity: 0.8 }
+                  border: '2px solid var(--outline)'
                 }}
               >
                 {user?.photoURL ? (
-                  <Avatar src={user.photoURL} alt={user.displayName || "User"} />
+                  <Avatar src={user.photoURL} alt={user.displayName || "User"} sx={{ width: 28, height: 28, bgcolor: 'var(--surface-variant)' }} />
                 ) : (
-                  <Avatar>
-                    {user?.displayName ? user.displayName[0].toUpperCase() : <AccountCircleIcon />}
+                  <Avatar sx={{ width: 28, height: 28, bgcolor: 'var(--surface-variant)', color: '#fff' }}>
+                    {user?.displayName ? user.displayName[0].toUpperCase() : <AccountCircleIcon fontSize="medium" />}
                   </Avatar>
                 )}
               </ButtonBase>

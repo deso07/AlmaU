@@ -1,20 +1,61 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail,
+  updateProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { app } from '../config/firebase';
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Helper function to get user-friendly error message
+const getAuthErrorMessage = (error: FirebaseError): string => {
+  switch (error.code) {
+    case 'auth/invalid-credential':
+      return 'Неверный email или пароль';
+    case 'auth/user-not-found':
+      return 'Пользователь не найден';
+    case 'auth/wrong-password':
+      return 'Неверный пароль';
+    case 'auth/email-already-in-use':
+      return 'Этот email уже используется';
+    case 'auth/weak-password':
+      return 'Пароль слишком слабый';
+    case 'auth/invalid-email':
+      return 'Неверный формат email';
+    case 'auth/operation-not-allowed':
+      return 'Операция не разрешена';
+    case 'auth/too-many-requests':
+      return 'Слишком много попыток. Попробуйте позже';
+    default:
+      return 'Произошла ошибка при аутентификации';
+  }
+};
 
 // Extended user interface with additional profile information
 interface User {
+  id: string;
   uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
+  email: string;
+  username: string;
+  displayName?: string;
+  photoURL?: string;
+  role?: 'admin' | 'teacher' | 'student';
   university?: string;
   faculty?: string;
   year?: string;
   phone?: string;
   about?: string;
   createdAt?: string;
-  lastLogin?: string;
-  role?: 'student' | 'teacher' | 'admin';  // Add role property
+  position?: string;
 }
 
 interface AuthState {
@@ -22,26 +63,14 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   error: string | null;
+  success: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string, userData?: Partial<User>) => Promise<void>;
-  logout: () => void;
-  updateUserProfile: (data: Partial<User>) => void;
+  register: (username: string, email: string, password: string, userData?: Partial<User>) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUserProfile: (userData: Partial<User>) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
-// Мок функции для имитации запросов к API
-const mockAPICall = (success: boolean, data: any, errorMessage?: string): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (success) {
-        resolve(data);
-      } else {
-        reject(new Error(errorMessage || 'An error occurred'));
-      }
-    }, 1000);
-  });
-};
-
-// Создание хранилища состояния авторизации
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -49,140 +78,177 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       loading: false,
       error: null,
-      login: async (email: string, password: string) => {
+      success: null,
+      login: async (email, password) => {
         set({ loading: true, error: null });
         try {
-          // Get current date for lastLogin
-          const currentDate = new Date().toISOString();
-          
-          // Check if we have saved user data for this email
-          const savedUsers = localStorage.getItem('registered-users');
-          let user = null;
-          
-          if (savedUsers) {
-            const users = JSON.parse(savedUsers);
-            user = users.find((u: User) => u.email === email);
-          }
-          
-          // If no saved user, create a basic one
-          if (!user) {
-            user = {
-              uid: '1',
-              email: email,
-              displayName: '',
-              photoURL: null,
-              createdAt: currentDate,
-            };
-          }
-          
-          // Update last login time
-          user.lastLogin = currentDate;
-          
-          // Assign role based on email
-          let role: 'student' | 'teacher' | 'admin' = 'student';
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          let role: 'admin' | 'teacher' | 'student' = 'student';
           if (email.includes('teacher')) {
             role = 'teacher';
           } else if (email.includes('admin')) {
             role = 'admin';
           }
-          user.role = role;
-          
-          // Imitate API request
-          const mockUser = await mockAPICall(
-            true, // Success flag
-            user,
-            'Invalid email or password'
-          );
-          
-          set({ isAuthenticated: true, user: mockUser, loading: false });
-        } catch (error) {
+          // --- Load profile from Firestore ---
+          let profileData = {};
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              profileData = userDoc.data();
+            }
+          } catch (e) {
+            console.error('Ошибка при загрузке профиля из Firestore:', e);
+          }
+          set({
+            isAuthenticated: true,
+            user: {
+              id: user.uid,
+              uid: user.uid,
+              email: user.email || '',
+              username: user.displayName || user.email?.split('@')[0] || '',
+              role: (profileData as any).role || role,
+              position: (profileData as any).position,
+              photoURL: user.photoURL || undefined,
+              displayName: user.displayName || undefined,
+              ...profileData
+            },
+            loading: false,
+            error: null
+          });
+        } catch (error: any) {
+          const errorMessage = error instanceof FirebaseError ? getAuthErrorMessage(error) : 'Произошла ошибка при входе';
           set({ 
             isAuthenticated: false, 
-            user: null, 
+            user: null,
             loading: false, 
-            error: (error as Error).message 
+            error: errorMessage
           });
-          throw error;
+          console.error('Login error:', error);
+          throw new Error(errorMessage);
         }
       },
-      register: async (email: string, password: string, displayName: string, userData?: Partial<User>) => {
+      register: async (username, email, password, userData) => {
         set({ loading: true, error: null });
         try {
-          // Get current date for createdAt and lastLogin
-          const currentDate = new Date().toISOString();
-          
-          // Assign role based on email
-          let role: 'student' | 'teacher' | 'admin' = 'student';
-          if (email.includes('teacher')) {
-            role = 'teacher';
-          } else if (email.includes('admin')) {
-            role = 'admin';
+          // Email validation using a more standard regex
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            set({ loading: false });
+            throw new Error('Пожалуйста, введите корректный email адрес');
           }
-          
-          // Create new user with basic + provided data
-          const newUser = {
-            uid: `user_${Date.now()}`,
-            email,
-            displayName,
-            photoURL: null,
-            createdAt: currentDate,
-            lastLogin: currentDate,
-            role,
-            ...userData
-          };
-          
-          // Store user in local storage for future logins
-          const savedUsers = localStorage.getItem('registered-users');
-          const users = savedUsers ? JSON.parse(savedUsers) : [];
-          users.push(newUser);
-          localStorage.setItem('registered-users', JSON.stringify(users));
-          
-          // Imitate API request
-          const mockUser = await mockAPICall(
-            true, // Success flag
-            newUser,
-            'Email already in use'
-          );
-          
-          set({ isAuthenticated: true, user: mockUser, loading: false });
-        } catch (error) {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          if (user) {
+            await updateProfile(user, {
+              displayName: username
+            });
+            // --- Save profile to Firestore ---
+            try {
+              // Валидация и очистка данных
+              const cleanString = (val: unknown): string | undefined =>
+                typeof val === 'string' && val.trim() !== '' ? val : undefined;
+
+              let firestorePayload: Record<string, string | undefined> = {
+                displayName: cleanString(username),
+                email: cleanString(email),
+                university: cleanString(userData?.university),
+                faculty: cleanString(userData?.faculty),
+                phone: cleanString(userData?.phone),
+                about: cleanString(userData?.about),
+                photoURL: cleanString(user.photoURL),
+                createdAt: new Date().toISOString(),
+                role: userData?.role,
+                position: userData?.role === 'teacher' ? cleanString(userData?.year) : undefined,
+                year: userData?.role === 'student' ? cleanString(userData?.year) : undefined,
+              };
+              // Удаляем undefined значения
+              Object.keys(firestorePayload).forEach(
+                (key) => firestorePayload[key] === undefined && delete firestorePayload[key]
+              );
+              // Сохраняем профиль в Firestore
+              await setDoc(doc(db, 'users', user.uid), firestorePayload, { merge: true });
+            } catch (e) {
+              console.error('Error saving profile to Firestore:', e);
+              set({ loading: false });
+              throw new Error('Ошибка при сохранении профиля в базе данных');
+            }
+          }
+          // After successful registration, log in the user
+          await get().login(email, password);
+        } catch (error: any) {
+          const errorMessage = error instanceof FirebaseError ? getAuthErrorMessage(error) : error.message || 'Произошла ошибка при регистрации';
           set({ 
             isAuthenticated: false, 
-            user: null, 
+            user: null,
             loading: false, 
-            error: (error as Error).message 
+            error: errorMessage
           });
-          throw error;
+          console.error('Registration error:', error);
+          throw new Error(errorMessage);
         }
       },
-      logout: () => {
-        set({ isAuthenticated: false, user: null });
+      logout: async () => {
+        try {
+          await signOut(auth);
+          set({ isAuthenticated: false, user: null, error: null });
+        } catch (error: any) {
+          const errorMessage = error instanceof FirebaseError ? getAuthErrorMessage(error) : 'Ошибка при выходе из системы';
+          set({ error: errorMessage });
+          throw new Error(errorMessage);
+        }
       },
-      updateUserProfile: (data) => {
-        const currentUser = get().user;
-        if (currentUser) {
-          // Create updated user object
-          const updatedUser = { 
-            ...currentUser, 
-            ...data 
-          };
+      updateUserProfile: async (userData) => {
+        set({ loading: true, error: null });
+        try {
+          const currentUser = get().user;
+          if (!currentUser) throw new Error('Пользователь не найден');
           
-          // Update in local storage if registered
-          const savedUsers = localStorage.getItem('registered-users');
-          if (savedUsers) {
-            const users = JSON.parse(savedUsers);
-            const updatedUsers = users.map((u: User) => 
-              u.email === currentUser.email ? updatedUser : u
-            );
-            localStorage.setItem('registered-users', JSON.stringify(updatedUsers));
+          const firebaseUser = auth.currentUser;
+          if (firebaseUser) {
+            await updateProfile(firebaseUser, {
+              displayName: userData.displayName || null,
+              photoURL: userData.photoURL || null
+            });
           }
-          
-          set({ user: updatedUser });
+
+          set({
+            user: {
+              ...currentUser,
+              ...userData
+            },
+            loading: false,
+            error: null
+          });
+        } catch (error: any) {
+          const errorMessage = error instanceof FirebaseError ? getAuthErrorMessage(error) : 'Произошла ошибка при обновлении профиля';
+          set({ loading: false, error: errorMessage });
+          throw new Error(errorMessage);
+        }
+      },
+      resetPassword: async (email) => {
+        set({ loading: true, error: null });
+        try {
+          await sendPasswordResetEmail(auth, email);
+          set({ 
+            loading: false, 
+            error: null,
+            success: 'Инструкции по сбросу пароля отправлены на ваш email'
+          });
+        } catch (error: any) {
+          const errorMessage = error instanceof FirebaseError ? getAuthErrorMessage(error) : 'Произошла ошибка при сбросе пароля';
+          set({ 
+            loading: false, 
+            error: errorMessage,
+            success: null
+          });
+          throw new Error(errorMessage);
         }
       },
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({ isAuthenticated: state.isAuthenticated, user: state.user })
     }
   )
 );

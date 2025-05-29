@@ -117,9 +117,9 @@ const Login: React.FC = () => {
             {loading ? 'Вход...' : 'Войти'}
           </Button>
           
-          <Grid container>
+          <Grid container justifyContent="space-between" sx={{ mt: 2 }}>
             <Grid item xs>
-              <Link component={RouterLink} to="#" variant="body2">
+              <Link component={RouterLink} to="/forgot-password" variant="body2">
                 Забыли пароль?
               </Link>
             </Grid>
